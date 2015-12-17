@@ -133,6 +133,16 @@ The identifier may be one of two things:
 1. Another function defined in the current module.
 2. The fully-qualified identifier of a function in another module.
 
+Arguments may be any kind of storage (constant, static, or local). Some examples are as follows:
+
+```ruby
+# Calling a module-local function with constant and static values as arguments
+call foo(@bar, $baz)
+
+# Calling an externally-defined function with a local value
+call foo.bar.baz(bop)
+```
+
 #### `extern`
 
 Define an external module to be used by the current module.
