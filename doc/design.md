@@ -115,5 +115,23 @@ fn foo() {
 }
 
 # If @something = "foo" and @another_thing = "bar", then calling `foo` will
-# return "fooabr".
+# return "foobar".
+```
+
+### Macros
+
+Assembly provides an optional set of macros to make interfacing with the builtins easier. These can be enabled with the `macros builtins` keyword.
+
+```ruby
+macros builtins
+
+# Without builtins macros
+const @hello_world1 = _.std.string.new "Hello world!"
+# With builtsin macros
+const @hello_world2 = %string "Hello world!"
+
+# Without
+foo = call _.std.string.concat(bar, baz)
+# With
+foo = %string+ bar, baz
 ```
