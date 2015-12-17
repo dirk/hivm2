@@ -5,7 +5,9 @@
 An extremely high-level representation of the program's execution. Assembly is entirely untyped and composed of just a limited set of primitive statements and structures:
 
 - mod
+- extern
 - const
+- static
 - local
 - fn
 - return
@@ -44,7 +46,7 @@ The only values even marginally like primitives are those constructed by calls t
 
 The assembly provides for two kinds of storage: constant globals, static variables, and local variables.
 
-#### Constant globals
+##### Constant globals
 
 Constant globals are prefixed with a `@` and defined and assigned once at the beginning of the module.
 
@@ -52,7 +54,7 @@ Constant globals are prefixed with a `@` and defined and assigned once at the be
 const @foo = _.std.string.new "bar"
 ```
 
-#### Static variables
+##### Static variables
 
 Static variables are prefixed with `$`, defined at the beginning of the module (initialized as a null value), and may then be assigned zero or more times in the module.
 
@@ -65,7 +67,7 @@ fn entry() {
 }
 ```
 
-#### Local variables
+##### Local variables
 
 Local variables have no prefix. They must also have their slot allocated (on the stack frame) with `local` before being used, however the `:=` allocate-and-assign shorthand is provided for this common use case.
 
@@ -80,7 +82,7 @@ fn foo() {
 }
 ```
 
-### Commands
+### Statements
 
 #### `const`
 
@@ -116,6 +118,34 @@ fn foo() {
 
 # If @something = "foo" and @another_thing = "bar", then calling `foo` will
 # return "foobar".
+```
+
+#### `call`
+
+Call is used to invoke a function by identifier. It has the syntax:
+
+```
+"call" IDENTIFIER "(" ( ARGUMENT ( "," ARGUMENT )* )? ")"
+```
+
+The identifier may be one of two things:
+
+1. Another function defined in the current module.
+2. The fully-qualified identifier of a function in another module.
+
+#### `extern`
+
+Define an external module to be used by the current module.
+
+```ruby
+mod a
+extern b
+
+fn foo() {
+  bar := call b.bar()
+
+  return bar
+}
 ```
 
 ### Macros
