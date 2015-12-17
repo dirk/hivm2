@@ -12,10 +12,12 @@ An extremely high-level representation of the program's execution. Assembly is e
 - fn
 - return
 - call
+- test
 - if
-- elseif
+- then
 - else
 - while
+- do
 - break
 
 Below is a short hello world demonstrating some of the features of the assembly:
@@ -120,6 +122,16 @@ fn foo() {
 # return "foobar".
 ```
 
+#### `return`
+
+Returns from the current function; accepts a single storage argument for a value to be returned. The formal syntax is:
+
+```
+"return" ARGUMENT?
+```
+
+If no argument is specified then the null value will be returned. The single argument can be any kind of storage (constant, static, or local).
+
 #### `call`
 
 Call is used to invoke a function by identifier. It has the syntax:
@@ -141,6 +153,63 @@ call foo(@bar, $baz)
 
 # Calling an externally-defined function with a local value
 call foo.bar.baz(bop)
+```
+
+#### `test`
+
+Test is the final statement in a condition basic block. It takes any storage as an argument and yields that to the control structure for it to use to determine control flow.
+
+```ruby
+if {
+  x := call y()
+  test x
+} then {
+  ...
+}
+```
+
+#### `if`, `then`, and `else`
+
+Standard conditional branching control structure. `if` requires a basic block ending with a `test` statement and must be followed by a `then` statement.
+
+```ruby
+fn foo() {
+  bar := ...
+
+  if { test bar } then {
+    ...
+  } else {
+    baz := ...
+
+    if { test baz } then {
+      ...
+    } else {
+      ...
+    }
+  }
+}
+```
+
+#### `while`, `do`, and `break`
+
+While will repeat while the condition is not the null value. Break will immediately jump to the position immediately after the nearest while. The condition of while must be a block ending with a `test` statement.
+
+```ruby
+fn foo() {
+  bar := ...
+  baz := ...
+
+  while { test bar } do {
+    if { test baz } then {
+      break
+    }
+  }
+
+  # Then inverted do-while is also permitted
+  do {
+    ...
+  } while { test bar }
+}
 ```
 
 #### `extern`
