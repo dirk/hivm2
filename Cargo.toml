@@ -1,0 +1,4 @@
+[package]
+name = "hivm"
+version = "0.1.0"
+authors = ["Dirk Gadsden <dirk@esherido.com>"]
