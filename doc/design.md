@@ -2,7 +2,7 @@
 
 ## Assembly
 
-An extremely high-level representation of the program's execution. Assembly is entirely untyped and composed of just a limited set of primitive statements and structures:
+A high-level representation of the program's execution. Assembly is entirely untyped and composed of just a small set of primitive statements and structures:
 
 - mod
 - extern
@@ -19,6 +19,7 @@ An extremely high-level representation of the program's execution. Assembly is e
 - while
 - do
 - break
+- macros
 
 Below is a short hello world demonstrating some of the features of the assembly:
 
@@ -112,7 +113,7 @@ fn foo() {
     bar = call _.std.string.concat(bar, x)
   }
 
-  # Use the `_.fn.call` builtin to call a function value
+  # Use the `_.std.fn.call` builtin to call a function value
   call _.std.fn.call(baz, @another_thing)
 
   return bar
@@ -205,7 +206,7 @@ fn foo() {
     }
   }
 
-  # Then inverted do-while is also permitted
+  # The inverted do-while is also permitted
   do {
     ...
   } while { test bar }
@@ -236,7 +237,7 @@ macros builtins
 
 # Without builtins macros
 const @hello_world1 = _.std.string.new "Hello world!"
-# With builtsin macros
+# With builtins macros
 const @hello_world2 = %string "Hello world!"
 
 # Without
