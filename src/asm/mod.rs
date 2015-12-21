@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+#[derive(PartialEq)]
 pub struct Program {
     stmts: Vec<Statement>
 }
@@ -16,12 +17,12 @@ impl Program {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(Clone, PartialEq)]
 struct BasicBlock {
     stmts: Vec<Statement>
 }
 
-#[derive(PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum Statement {
     StatementMod(Mod),
     StatementExtern(Extern),
@@ -42,7 +43,7 @@ pub enum Statement {
 
 pub type Name = String;
 
-#[derive(PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct Path {
     segments: Vec<Name>,
 }
@@ -53,7 +54,7 @@ impl Path {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct Mod {
     path: Path,
 }
@@ -64,76 +65,76 @@ impl Mod {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(Clone, PartialEq)]
 struct Extern {
     path: Path,
 }
 
-#[derive(PartialEq)]
+#[derive(Clone, PartialEq)]
 struct Const {
     name: Name,
     constructor: Path,
     argument: Option<String>,
 }
 
-#[derive(PartialEq)]
+#[derive(Clone, PartialEq)]
 struct Static {
     name: Name,
 }
 
-#[derive(PartialEq)]
+#[derive(Clone, PartialEq)]
 struct Local {
     name: Name,
 }
 
-#[derive(PartialEq)]
+#[derive(Clone, PartialEq)]
 struct Fn {
     name: Name,
     parameters: Vec<Name>,
     body: BasicBlock,
 }
 
-#[derive(PartialEq)]
+#[derive(Clone, PartialEq)]
 struct Return {
     name: Option<Name>,
 }
 
-#[derive(PartialEq)]
+#[derive(Clone, PartialEq)]
 struct Call {
     name: Name,
     arguments: Vec<Name>,
 }
 
-#[derive(PartialEq)]
+#[derive(Clone, PartialEq)]
 struct Test {
     name: Name,
 }
 
-#[derive(PartialEq)]
+#[derive(Clone, PartialEq)]
 struct If {
     condition: BasicBlock,
     then_sibling: Then,
 }
 
-#[derive(PartialEq)]
+#[derive(Clone, PartialEq)]
 struct Then {
     body: BasicBlock,
     else_sibling: Option<Else>
 }
 
-#[derive(PartialEq)]
+#[derive(Clone, PartialEq)]
 struct Else {
     body: BasicBlock,
 }
 
-#[derive(PartialEq)]
+#[derive(Clone, PartialEq)]
 struct While {
     body: BasicBlock,
     // Some if this While is the lead and it's followed by a Do
     do_sibling: Option<Box<Do>>,
 }
 
-#[derive(PartialEq)]
+#[derive(Clone, PartialEq)]
 struct Do {
     body: BasicBlock,
     // Some if this Do is lead and it's followed by a While
