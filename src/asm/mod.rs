@@ -23,11 +23,25 @@ impl Program {
     fn push_static(&mut self, s: Static) {
         self.stmts.push(Statement::StatementStatic(s));
     }
+
+    fn push_fn(&mut self, f: Fn) {
+        self.stmts.push(Statement::StatementFn(f));
+    }
+
+    fn push_return(&mut self, r: Return) {
+        self.stmts.push(Statement::StatementReturn(r));
+    }
 }
 
 #[derive(Clone, PartialEq)]
-struct BasicBlock {
+pub struct BasicBlock {
     stmts: Vec<Statement>
+}
+
+impl BasicBlock {
+    fn new() -> BasicBlock {
+        BasicBlock { stmts: vec![] }
+    }
 }
 
 #[derive(Clone, PartialEq)]
@@ -117,13 +131,19 @@ pub struct Static {
     name: Name,
 }
 
+impl Static {
+    fn new(name: Name) -> Static {
+        Static { name: name }
+    }
+}
+
 #[derive(Clone, PartialEq)]
 struct Local {
     name: Name,
 }
 
 #[derive(Clone, PartialEq)]
-struct Fn {
+pub struct Fn {
     name: Name,
     parameters: Vec<Name>,
     body: BasicBlock,
@@ -140,8 +160,14 @@ impl Fn {
 }
 
 #[derive(Clone, PartialEq)]
-struct Return {
+pub struct Return {
     name: Option<Name>,
+}
+
+impl Return {
+    fn new(name: Option<Name>) -> Return {
+        Return { name: name }
+    }
 }
 
 #[derive(Clone, PartialEq)]
@@ -198,9 +224,10 @@ struct Do {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::ops::Fn as StdFn;
 
     fn assert_pushes<F>(block: F) where
-        F: Fn(&mut Program) {
+        F: StdFn(&mut Program) {
 
         let mut p = Program::new();
 
@@ -242,8 +269,30 @@ mod tests {
     #[test]
     fn push_static() {
         assert_pushes(|p: &mut Program| {
-            let s = Static { name: "a_static".to_string() };
+            let s = Static::new("a_static".to_string());
             p.push_static(s);
+        })
+    }
+
+    #[test]
+    fn push_fn() {
+        assert_pushes(|p: &mut Program| {
+            let bb = BasicBlock::new();
+            let f = Fn::new("a_fn".to_string(), vec![], bb);
+            p.push_fn(f);
+        })
+    }
+
+    #[test]
+    fn push_return() {
+        assert_pushes(|p: &mut Program| {
+            let r = Return::new(None);
+            p.push_return(r);
+        });
+
+        assert_pushes(|p: &mut Program| {
+            let r = Return::new(Some("a_local".to_string()));
+            p.push_return(r);
         })
     }
 }
