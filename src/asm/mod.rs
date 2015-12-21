@@ -41,6 +41,9 @@ pub enum Statement {
     StatementBreak,
 }
 
+#[derive(Debug)]
+enum ParseError { }
+
 pub type Name = String;
 
 #[derive(Clone, PartialEq)]
@@ -51,6 +54,14 @@ pub struct Path {
 impl Path {
     fn with_name(name: Name) -> Path {
         Path { segments: vec![name], }
+    }
+
+    fn from_str(s: &str) -> Result<Path, ParseError> {
+        let parts = s.split('.');
+
+        let segments = parts.map(|p| p.to_string() ).collect();
+
+        Ok(Path { segments: segments })
     }
 }
 
@@ -185,7 +196,7 @@ mod tests {
         let mut p = Program::new();
         assert_eq!(p.stmts.len(), 0);
 
-        let m = Mod::new(Path::with_name("test".to_string()));
+        let m = Mod::new(Path::from_str("test").unwrap());
         p.push_mod(m);
         assert_eq!(p.stmts.len(), 1);
     }
