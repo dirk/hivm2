@@ -15,6 +15,14 @@ impl Program {
     fn push_mod(&mut self, m: Mod) {
         self.stmts.push(Statement::StatementMod(m));
     }
+
+    fn push_extern(&mut self, e: Extern) {
+        self.stmts.push(Statement::StatementExtern(e));
+    }
+
+    fn push_static(&mut self, s: Static) {
+        self.stmts.push(Statement::StatementStatic(s));
+    }
 }
 
 #[derive(Clone, PartialEq)]
@@ -46,6 +54,7 @@ enum ParseError { }
 
 pub type Name = String;
 
+/// Represents a period-separated list of names.
 #[derive(Clone, PartialEq)]
 pub struct Path {
     segments: Vec<Name>,
@@ -58,7 +67,6 @@ impl Path {
 
     fn from_str(s: &str) -> Result<Path, ParseError> {
         let parts = s.split('.');
-
         let segments = parts.map(|p| p.to_string() ).collect();
 
         Ok(Path { segments: segments })
@@ -77,7 +85,7 @@ impl Mod {
 }
 
 #[derive(Clone, PartialEq)]
-struct Extern {
+pub struct Extern {
     path: Path,
 }
 
@@ -105,7 +113,7 @@ impl Const {
 }
 
 #[derive(Clone, PartialEq)]
-struct Static {
+pub struct Static {
     name: Name,
 }
 
@@ -191,13 +199,42 @@ struct Do {
 mod tests {
     use super::*;
 
+    fn assert_pushes<F>(block: F) where
+        F: Fn(&mut Program) {
+
+        let mut p = Program::new();
+
+        block(&mut p);
+        assert_eq!(p.stmts.len(), 1)
+    }
+
     #[test]
     fn create_program() {
-        let mut p = Program::new();
-        assert_eq!(p.stmts.len(), 0);
+        let p = Program::new();
+        assert_eq!(p.stmts.len(), 0)
+    }
 
-        let m = Mod::new(Path::from_str("test").unwrap());
-        p.push_mod(m);
-        assert_eq!(p.stmts.len(), 1);
+    #[test]
+    fn push_mod() {
+        assert_pushes(|p: &mut Program| {
+            let m = Mod::new(Path::from_str("test").unwrap());
+            p.push_mod(m);
+        })
+    }
+
+    #[test]
+    fn push_extern() {
+        assert_pushes(|p: &mut Program| {
+            let e = Extern::new(Path::from_str("an_extern").unwrap());
+            p.push_extern(e);
+        })
+    }
+
+    #[test]
+    fn push_static() {
+        assert_pushes(|p: &mut Program| {
+            let s = Static { name: "a_static".to_string() };
+            p.push_static(s);
+        })
     }
 }
