@@ -209,6 +209,15 @@ mod tests {
     }
 
     #[test]
+    fn parse_path() {
+        let p1 = Path::from_str("a").unwrap();
+        assert_eq!(p1.segments, ["a"]);
+
+        let p2 = Path::from_str("a.b").unwrap();
+        assert_eq!(p2.segments, ["a", "b"])
+    }
+
+    #[test]
     fn create_program() {
         let p = Program::new();
         assert_eq!(p.stmts.len(), 0)
