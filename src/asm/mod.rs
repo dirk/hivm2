@@ -70,11 +70,27 @@ struct Extern {
     path: Path,
 }
 
+impl Extern {
+    fn new(path: Path) -> Extern {
+        Extern { path: path }
+    }
+}
+
 #[derive(Clone, PartialEq)]
 struct Const {
     name: Name,
     constructor: Path,
     argument: Option<String>,
+}
+
+impl Const {
+    fn new(name: Name, constructor: Path, argument: Option<String>) -> Const {
+        Const {
+            name: name,
+            constructor: constructor,
+            argument: argument,
+        }
+    }
 }
 
 #[derive(Clone, PartialEq)]
@@ -94,6 +110,16 @@ struct Fn {
     body: BasicBlock,
 }
 
+impl Fn {
+    fn new(name: Name, parameters: Vec<Name>, body: BasicBlock) -> Fn {
+        Fn {
+            name: name,
+            parameters: parameters,
+            body: body,
+        }
+    }
+}
+
 #[derive(Clone, PartialEq)]
 struct Return {
     name: Option<Name>,
@@ -103,6 +129,15 @@ struct Return {
 struct Call {
     name: Name,
     arguments: Vec<Name>,
+}
+
+impl Call {
+    fn new(name: Name, arguments: Vec<Name>) -> Call {
+        Call {
+            name: name,
+            arguments: arguments,
+        }
+    }
 }
 
 #[derive(Clone, PartialEq)]
