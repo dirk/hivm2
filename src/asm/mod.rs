@@ -75,8 +75,13 @@ pub struct Path {
 }
 
 impl Path {
-    fn with_name(name: Name) -> Path {
-        Path { segments: vec![name], }
+
+    pub fn new(segments: Vec<Name>) -> Path {
+        Path { segments: segments }
+    }
+
+    pub fn with_name(name: Name) -> Path {
+        Path::new(vec![name])
     }
 
     fn from_str(s: &str) -> Result<Path, ParseError> {
@@ -104,7 +109,7 @@ pub struct Extern {
 }
 
 impl Extern {
-    fn new(path: Path) -> Extern {
+    pub fn new(path: Path) -> Extern {
         Extern { path: path }
     }
 }
