@@ -132,14 +132,20 @@ pub struct Static {
 }
 
 impl Static {
-    fn new(name: Name) -> Static {
+    pub fn new(name: Name) -> Static {
         Static { name: name }
     }
 }
 
-#[derive(Clone, PartialEq)]
-struct Local {
+#[derive(Clone, Debug, PartialEq)]
+pub struct Local {
     name: Name,
+}
+
+impl Local {
+    pub fn new(name: Name) -> Local {
+        Local { name: name }
+    }
 }
 
 #[derive(Clone, PartialEq)]
