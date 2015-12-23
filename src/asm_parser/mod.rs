@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
-use nom::{alpha, space};
-use asm::{Extern, Local, Path, Static};
+use nom::{alpha, digit, space};
+use asm::{Const, Extern, Local, Path, Static};
 use std::str;
 
 fn to_s(i: &[u8]) -> String {
@@ -15,10 +15,17 @@ named!(plocal_name<&[u8], String>,
 
 named!(pstatic_name<&[u8], String>,
     chain!(
-        tag!("$")   ~
-        name: alpha ,
+        tag!("$") ~ name: alpha,
 
         ||{ "$".to_string() + &to_s(name) }
+    )
+);
+
+named!(pconst_name<&[u8], String>,
+    chain!(
+        tag!("@") ~ name: alpha,
+
+        ||{ "@".to_string() + &to_s(name) }
     )
 );
 
@@ -73,9 +80,64 @@ named!(pextern<&[u8], Extern>,
     )
 );
 
+/// Parses constant constructor (string, number or null)
+///
+/// - string = "[^"]*"
+/// - number = [0-9]+
+/// - null = null
+named!(pconst_argument<&[u8], String>,
+    alt!(
+        pconst_string |
+        pconst_number |
+        pconst_null
+    )
+);
+named!(pconst_string<&[u8], String>,
+    chain!(
+        tag!("\"")               ~
+        value: take_until!("\"") ~
+        tag!("\"")               ,
+
+        ||{ to_s(value) }
+    )
+);
+named!(pconst_number<&[u8], String>,
+    chain!(
+        value: digit, ||{ to_s(value) }
+    )
+);
+named!(pconst_null<&[u8], String>,
+    chain!(
+        tag!("null"), ||{ "null".to_string() }
+    )
+);
+
+/// Parses a space followed by a constant constructor argument.
+named!(space_arg<&[u8], String>,
+    chain!(
+        space ~ arg: pconst_argument,
+        ||{ arg }
+    )
+);
+
+/// Parses "const @NAME = constructor"
+named!(pconst<&[u8], Const>,
+    chain!(
+        tag!("const")            ~ space ~
+        name: pconst_name        ~ space ~
+        tag!("=")                ~ space ~
+        cons: ppath              ~
+        arg:  opt!(space_arg)    ,
+
+        ||{
+            Const::new(name, cons, arg)
+        }
+    )
+);
+
 #[cfg(test)]
 mod tests {
-    use super::plocal;
+    use super::{pconst, plocal};
     use nom::{IResult};
     use asm::*;
 
@@ -84,5 +146,18 @@ mod tests {
         let l = plocal(b"local foo");
 
         assert_eq!(l, IResult::Done(&b""[..], Local::new("foo".to_string())))
+    }
+
+    #[test]
+    fn parse_const() {
+        let parsed_const = pconst(b"const @a = b \"c\"");
+
+        let expected_const = Const::new(
+            "@a".to_string(),
+            Path::with_name("b".to_string()),
+            Some("c".to_string())
+        );
+
+        assert_eq!(parsed_const, IResult::Done(&b""[..], expected_const))
     }
 }

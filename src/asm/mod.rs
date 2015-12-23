@@ -69,13 +69,12 @@ enum ParseError { }
 pub type Name = String;
 
 /// Represents a period-separated list of names.
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Path {
     segments: Vec<Name>,
 }
 
 impl Path {
-
     pub fn new(segments: Vec<Name>) -> Path {
         Path { segments: segments }
     }
@@ -114,15 +113,15 @@ impl Extern {
     }
 }
 
-#[derive(Clone, PartialEq)]
-struct Const {
+#[derive(Clone, Debug, PartialEq)]
+pub struct Const {
     name: Name,
     constructor: Path,
     argument: Option<String>,
 }
 
 impl Const {
-    fn new(name: Name, constructor: Path, argument: Option<String>) -> Const {
+    pub fn new(name: Name, constructor: Path, argument: Option<String>) -> Const {
         Const {
             name: name,
             constructor: constructor,
