@@ -31,22 +31,11 @@ named!(pconst_name<&[u8], String>,
 
 /// Parses "a.b.c"
 named!(ppath<&[u8], Path>,
-    chain!(
-        head: alpha                                               ~
-        rest: many0!(chain!(tag!(".") ~ name: alpha, ||{ name })) ,
-
-        ||{
-            let mut segments = vec![to_s(head)];
-
-            for name in rest {
-                segments.push(to_s(name))
-            }
-
-            println!("ppath: {:?}", segments);
+    map!(separated_nonempty_list!(tag!("."), alpha), |raw_segments: Vec<&[u8]>| {
+            let segments = raw_segments.iter().map(|s| to_s(s) ).collect();
 
             Path::new(segments)
-        }
-    )
+    })
 );
 
 /// Parses "local NAME"

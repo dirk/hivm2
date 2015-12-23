@@ -64,7 +64,7 @@ pub enum Statement {
 }
 
 #[derive(Debug)]
-enum ParseError { }
+pub enum ParseError { }
 
 pub type Name = String;
 
@@ -83,7 +83,7 @@ impl Path {
         Path::new(vec![name])
     }
 
-    fn from_str(s: &str) -> Result<Path, ParseError> {
+    pub fn from_str(s: &str) -> Result<Path, ParseError> {
         let parts = s.split('.');
         let segments = parts.map(|p| p.to_string() ).collect();
 
