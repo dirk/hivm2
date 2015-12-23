@@ -175,7 +175,7 @@ pub struct Return {
 }
 
 impl Return {
-    fn new(name: Option<Name>) -> Return {
+    pub fn new(name: Option<Name>) -> Return {
         Return { name: name }
     }
 }

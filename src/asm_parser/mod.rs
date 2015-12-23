@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
-use nom::{alpha, digit, eof, space, IResult};
-use asm::{Const, Extern, Local, Path, Static};
+use nom::{alpha, digit, eof, space};
+use asm::{Const, Extern, Local, Path, Return, Static};
 use std::str;
 
 fn to_s(i: &[u8]) -> String {
@@ -123,38 +123,49 @@ named!(pterminal<&[u8], ()>,
     )
 );
 
-/// Parses a space followed by a constant constructor argument.
-fn pconst_arg(input: &[u8]) -> IResult<&[u8], Option<String>> {
-    named!(parse_const_arg<&[u8], Option<String> >,
-        opt!(preceded!(space, pconst_argument))
-    );
+named!(pconst_constructor_pair<&[u8], (Path, Option<String>) >,
+    chain!(
+        cons: ppath ~ space ~
+        arg:  alt!(
+                  pterminal                               => { |_| None } |
+                  terminated!(pconst_argument, pterminal) => { |arg| Some(arg) }
+              ),
 
-    match pterminal(input) {
-        IResult::Done(_, _) => { return IResult::Done(input, None) },
-        _ => ()
-    }
+        ||{ (cons, arg) }
+    )
+);
 
-    parse_const_arg(input)
-
-    // println!("take_const_arg: result = {:?}, i = {:?}", result, i);
-}
-
-/// Parses "const @NAME = constructor"
+/// Parses "const @NAME = constructor argument?"
 named!(pconst<&[u8], Const>,
     chain!(
-        tag!("const")            ~ space ~
-        name: pconst_name        ~ space ~
-        tag!("=")                ~ space ~
-        cons: ppath              ~
-        arg:  pconst_arg         ,
+        tag!("const")               ~ space ~
+        name: pconst_name           ~ space ~
+        tag!("=")                   ~ space? ~
+        cp: pconst_constructor_pair ,
 
         ||{
+            let cons = cp.0.clone();
+            let arg  = cp.1.clone();
+
             Const::new(name, cons, arg)
         }
     )
 );
 
+named!(preturn_arg<&[u8], String>,
+    preceded!(space, map!(alpha, |name| { to_s(name) }))
+);
 
+/// Parses "return"
+named!(preturn<&[u8], Return>,
+    chain!(
+        tag!("return")         ~
+        arg: opt!(preturn_arg) ~
+        pterminal              ,
+
+        ||{ Return::new(arg) }
+    )
+);
 
 #[cfg(test)]
 mod tests {
