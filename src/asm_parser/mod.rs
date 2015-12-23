@@ -39,3 +39,17 @@ named!(pstatic<&[u8], Static>,
         ||{ Static::new(name) }
     )
 );
+
+#[cfg(test)]
+mod tests {
+    use super::plocal;
+    use nom::{IResult};
+    use asm::*;
+
+    #[test]
+    fn parse_local() {
+        let l = plocal(b"local foo");
+
+        assert_eq!(l, IResult::Done(&b""[..], Local::new("foo".to_string())))
+    }
+}
