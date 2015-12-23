@@ -158,9 +158,18 @@ named!(preturn<&[u8], Return>,
 
 #[cfg(test)]
 mod tests {
-    use super::{pconst, plocal};
+    use super::{pconst, plocal, ppath};
     use nom::{IResult};
     use asm::*;
+
+    const EMPTY: &'static [u8] = b"";
+
+    #[test]
+    fn parse_path() {
+        assert_eq!(ppath(b"a"), IResult::Done(EMPTY, Path::from_str("a").unwrap()));
+
+        assert_eq!(ppath(b"b.c"), IResult::Done(EMPTY, Path::from_str("b.c").unwrap()))
+    }
 
     #[test]
     fn parse_local() {
@@ -181,8 +190,6 @@ mod tests {
 
         assert_eq!(parsed_const, IResult::Done(EMPTY, expected_const))
     }
-
-    const EMPTY: &'static [u8] = b"";
 
     #[test]
     fn parse_const_without_argument() {
