@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use nom::{alpha, digit, space};
+use nom::{alpha, digit, eof, space, IResult};
 use asm::{Const, Extern, Local, Path, Static};
 use std::str;
 
@@ -39,8 +39,10 @@ named!(ppath<&[u8], Path>,
             let mut segments = vec![to_s(head)];
 
             for name in rest {
-                segments.push(to_s(name));
+                segments.push(to_s(name))
             }
+
+            println!("ppath: {:?}", segments);
 
             Path::new(segments)
         }
@@ -112,13 +114,30 @@ named!(pconst_null<&[u8], String>,
     )
 );
 
-/// Parses a space followed by a constant constructor argument.
-named!(space_arg<&[u8], String>,
+named!(pterminal<&[u8], ()>,
     chain!(
-        space ~ arg: pconst_argument,
-        ||{ arg }
+        space? ~
+        eof    ,
+
+        ||{ () }
     )
 );
+
+/// Parses a space followed by a constant constructor argument.
+fn pconst_arg(input: &[u8]) -> IResult<&[u8], Option<String>> {
+    named!(parse_const_arg<&[u8], Option<String> >,
+        opt!(preceded!(space, pconst_argument))
+    );
+
+    match pterminal(input) {
+        IResult::Done(_, _) => { return IResult::Done(input, None) },
+        _ => ()
+    }
+
+    parse_const_arg(input)
+
+    // println!("take_const_arg: result = {:?}, i = {:?}", result, i);
+}
 
 /// Parses "const @NAME = constructor"
 named!(pconst<&[u8], Const>,
@@ -127,13 +146,15 @@ named!(pconst<&[u8], Const>,
         name: pconst_name        ~ space ~
         tag!("=")                ~ space ~
         cons: ppath              ~
-        arg:  opt!(space_arg)    ,
+        arg:  pconst_arg         ,
 
         ||{
             Const::new(name, cons, arg)
         }
     )
 );
+
+
 
 #[cfg(test)]
 mod tests {
@@ -145,11 +166,11 @@ mod tests {
     fn parse_local() {
         let l = plocal(b"local foo");
 
-        assert_eq!(l, IResult::Done(&b""[..], Local::new("foo".to_string())))
+        assert_eq!(l, IResult::Done(EMPTY, Local::new("foo".to_string())))
     }
 
     #[test]
-    fn parse_const() {
+    fn parse_const_with_argument() {
         let parsed_const = pconst(b"const @a = b \"c\"");
 
         let expected_const = Const::new(
@@ -158,6 +179,21 @@ mod tests {
             Some("c".to_string())
         );
 
-        assert_eq!(parsed_const, IResult::Done(&b""[..], expected_const))
+        assert_eq!(parsed_const, IResult::Done(EMPTY, expected_const))
+    }
+
+    const EMPTY: &'static [u8] = b"";
+
+    #[test]
+    fn parse_const_without_argument() {
+        let parsed_const = pconst(b"const @a = b");
+
+        let expected_const = Const::new(
+            "@a".to_string(),
+            Path::with_name("b".to_string()),
+            None
+        );
+
+        assert_eq!(parsed_const, IResult::Done(EMPTY, expected_const))
     }
 }
