@@ -2,3 +2,6 @@
 name = "hivm"
 version = "0.1.0"
 authors = ["Dirk Gadsden <dirk@esherido.com>"]
+
+[dependencies]
+nom = "~1.0.0"
