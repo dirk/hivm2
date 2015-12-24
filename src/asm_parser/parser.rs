@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use nom::{alpha, digit, eof, space};
+use nom::{alpha, digit, eof, space, IResult};
 use asm::{Assignment, AssignmentOp, Const, Extern, Local, Path, Return, Static};
 use std::str;
 
@@ -31,8 +31,8 @@ named!(ppath<&[u8], Path>,
 );
 
 /// Parses `local NAME`
-named!(pub plocal<&[u8], Local>,
-    chain!(
+pub fn plocal(input: &[u8]) -> IResult<&[u8], Local> {
+    chain!(input,
         tag!("local")     ~
         space             ~
         name: plocal_name ~
@@ -40,11 +40,11 @@ named!(pub plocal<&[u8], Local>,
 
         ||{ Local::new(name) }
     )
-);
+}
 
 /// Parses `static $NAME`
-named!(pub pstatic<&[u8], Static>,
-    chain!(
+pub fn pstatic(input: &[u8]) -> IResult<&[u8], Static> {
+    chain!(input,
         tag!("static")     ~
         space              ~
         name: pstatic_name ~
@@ -52,11 +52,11 @@ named!(pub pstatic<&[u8], Static>,
 
         ||{ Static::new(name) }
     )
-);
+}
 
 /// Parses `extern PATH` where path is like "foo.bar".
-named!(pub pextern<&[u8], Extern>,
-    chain!(
+pub fn pextern(input: &[u8]) -> IResult<&[u8], Extern> {
+    chain!(input,
         tag!("extern") ~
         space          ~
         path: ppath    ~
@@ -64,7 +64,7 @@ named!(pub pextern<&[u8], Extern>,
 
         ||{ Extern::new(path) }
     )
-);
+}
 
 named!(_const_constructor_pair<&[u8], (Path, Option<String>)>,
     chain!(
@@ -79,8 +79,8 @@ named!(_const_constructor_pair<&[u8], (Path, Option<String>)>,
 );
 
 /// Parses `const @NAME = CONSTRUCTOR ARGUMENT?``
-named!(pub pconst<&[u8], Const>,
-    chain!(
+pub fn pconst(input: &[u8]) -> IResult<&[u8], Const> {
+    chain!(input,
         tag!("const")               ~ space ~
         name: pconst_name           ~ space ~
         tag!("=")                   ~ space? ~
@@ -94,7 +94,7 @@ named!(pub pconst<&[u8], Const>,
             Const::new(name, cons, arg)
         }
     )
-);
+}
 
 /// Parses constant constructor (string, number or null)
 ///
@@ -140,8 +140,8 @@ named!(_identifier<&[u8], String>,
 /// Where name can be a static or local storage and value can be any kind of storage identifier.
 ///
 /// **Note:** Right now value can only be another name.
-named!(passignment<&[u8], Assignment>,
-    chain!(
+pub fn passignment(input: &[u8]) -> IResult<&[u8], Assignment> {
+    chain!(input,
         lvalue: alt!(plocal_name | pstatic_name) ~ space ~
         raw_op: alt!(tag!(":=") | tag!("="))     ~ space ~
         rvalue: _identifier                      ~
@@ -153,7 +153,7 @@ named!(passignment<&[u8], Assignment>,
             Assignment::new(lvalue, op, rvalue)
         }
     )
-);
+}
 
 named!(pterminal<&[u8], ()>,
     chain!(
@@ -168,8 +168,8 @@ named!(pterminal<&[u8], ()>,
 ///
 /// - `return`
 /// - `return ARGUMENT`
-named!(preturn<&[u8], Return>,
-    chain!(
+pub fn preturn(input: &[u8]) -> IResult<&[u8], Return> {
+    chain!(input,
         tag!("return") ~
         arg: alt!(
                  pterminal                                 => { |_| None } |
@@ -178,7 +178,7 @@ named!(preturn<&[u8], Return>,
 
         ||{ Return::new(arg) }
     )
-);
+}
 
 #[cfg(test)]
 mod tests {
