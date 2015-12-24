@@ -2,6 +2,15 @@
 name = "hivm2"
 version = "0.0.1"
 authors = ["Dirk Gadsden <dirk@esherido.com>"]
+description = "A new kind of virtual machine."
+repository = "https://github.com/dirk/hivm2"
+license-file = "LICENSE"
+
+include = [
+  ".gitignore",
+  "Cargo.toml",
+  "src/*.rs",
+]
 
 [dependencies]
 nom = "~1.0.0"
