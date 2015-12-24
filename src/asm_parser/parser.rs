@@ -31,7 +31,7 @@ named!(ppath<&[u8], Path>,
 );
 
 /// Parses `local NAME`
-named!(plocal<&[u8], Local>,
+named!(pub plocal<&[u8], Local>,
     chain!(
         tag!("local")     ~
         space             ~
@@ -42,7 +42,7 @@ named!(plocal<&[u8], Local>,
 );
 
 /// Parses `static $NAME`
-named!(pstatic<&[u8], Static>,
+named!(pub pstatic<&[u8], Static>,
     chain!(
         tag!("static")     ~
         space              ~
@@ -53,13 +53,42 @@ named!(pstatic<&[u8], Static>,
 );
 
 /// Parses `extern PATH` where path is like "foo.bar".
-named!(pextern<&[u8], Extern>,
+named!(pub pextern<&[u8], Extern>,
     chain!(
         tag!("extern") ~
         space          ~
         path: ppath    ,
 
         ||{ Extern::new(path) }
+    )
+);
+
+named!(_const_constructor_pair<&[u8], (Path, Option<String>)>,
+    chain!(
+        cons: ppath ~ space ~
+        arg:  alt!(
+                  pterminal                               => { |_| None } |
+                  terminated!(pconst_argument, pterminal) => { |arg| Some(arg) }
+              ),
+
+        ||{ (cons, arg) }
+    )
+);
+
+/// Parses `const @NAME = CONSTRUCTOR ARGUMENT?``
+named!(pub pconst<&[u8], Const>,
+    chain!(
+        tag!("const")               ~ space ~
+        name: pconst_name           ~ space ~
+        tag!("=")                   ~ space? ~
+        cp: _const_constructor_pair ,
+
+        ||{
+            let cons = cp.0.clone();
+            let arg  = cp.1.clone();
+
+            Const::new(name, cons, arg)
+        }
     )
 );
 
@@ -127,35 +156,6 @@ named!(pterminal<&[u8], ()>,
         eof    ,
 
         ||{ () }
-    )
-);
-
-named!(_const_constructor_pair<&[u8], (Path, Option<String>)>,
-    chain!(
-        cons: ppath ~ space ~
-        arg:  alt!(
-                  pterminal                               => { |_| None } |
-                  terminated!(pconst_argument, pterminal) => { |arg| Some(arg) }
-              ),
-
-        ||{ (cons, arg) }
-    )
-);
-
-/// Parses `const @NAME = CONSTRUCTOR ARGUMENT?``
-named!(pconst<&[u8], Const>,
-    chain!(
-        tag!("const")               ~ space ~
-        name: pconst_name           ~ space ~
-        tag!("=")                   ~ space? ~
-        cp: _const_constructor_pair ,
-
-        ||{
-            let cons = cp.0.clone();
-            let arg  = cp.1.clone();
-
-            Const::new(name, cons, arg)
-        }
     )
 );
 

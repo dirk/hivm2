@@ -1,8 +1,8 @@
 #[macro_use]
 extern crate nom;
 
-mod asm;
-mod asm_parser;
+pub mod asm;
+pub mod asm_parser;
 
 #[test]
 fn it_works() {

@@ -217,7 +217,7 @@ impl Return {
 }
 
 #[derive(Clone, PartialEq)]
-struct Call {
+pub struct Call {
     name: Name,
     arguments: Vec<Name>,
 }
@@ -232,36 +232,36 @@ impl Call {
 }
 
 #[derive(Clone, PartialEq)]
-struct Test {
+pub struct Test {
     name: Name,
 }
 
 #[derive(Clone, PartialEq)]
-struct If {
+pub struct If {
     condition: BasicBlock,
     then_sibling: Then,
 }
 
 #[derive(Clone, PartialEq)]
-struct Then {
+pub struct Then {
     body: BasicBlock,
     else_sibling: Option<Else>
 }
 
 #[derive(Clone, PartialEq)]
-struct Else {
+pub struct Else {
     body: BasicBlock,
 }
 
 #[derive(Clone, PartialEq)]
-struct While {
+pub struct While {
     body: BasicBlock,
     // Some if this While is the lead and it's followed by a Do
     do_sibling: Option<Box<Do>>,
 }
 
 #[derive(Clone, PartialEq)]
-struct Do {
+pub struct Do {
     body: BasicBlock,
     // Some if this Do is lead and it's followed by a While
     while_sibling: Option<Box<While>>,
