@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use nom::{alpha, digit, eof, space};
-use asm::{Const, Extern, Local, Path, Return, Static};
+use asm::{Assignment, AssignmentOp, Const, Extern, Local, Path, Return, Static};
 use std::str;
 
 fn to_s(i: &[u8]) -> String {
@@ -14,19 +14,11 @@ named!(plocal_name<&[u8], String>,
 );
 
 named!(pstatic_name<&[u8], String>,
-    chain!(
-        tag!("$") ~ name: alpha,
-
-        ||{ "$".to_string() + &to_s(name) }
-    )
+    map!(preceded!(tag!("$"), alpha), |name| { "$".to_string() + &to_s(name) })
 );
 
 named!(pconst_name<&[u8], String>,
-    chain!(
-        tag!("@") ~ name: alpha,
-
-        ||{ "@".to_string() + &to_s(name) }
-    )
+    map!(preceded!(tag!("@"), alpha), |name| { "@".to_string() + &to_s(name) })
 );
 
 /// Parses "a.b.c"
@@ -93,13 +85,30 @@ named!(pconst_string<&[u8], String>,
     )
 );
 named!(pconst_number<&[u8], String>,
-    chain!(
-        value: digit, ||{ to_s(value) }
-    )
+    map!(digit, |value| { to_s(value) })
 );
 named!(pconst_null<&[u8], String>,
+    map!(tag!("null"), |_| { "null".to_string() })
+);
+
+/// Parses assignments
+named!(passignment<&[u8], Assignment>,
     chain!(
-        tag!("null"), ||{ "null".to_string() }
+        lvalue: alt!(plocal_name | pstatic_name) ~ space ~
+        raw_op: alt!(tag!(":=") | tag!("="))     ~ space ~
+        rvalue: alpha                            ,
+
+        ||{
+            let str_op = str::from_utf8(raw_op).unwrap();
+
+            let op = match str_op {
+                "="  => AssignmentOp::Plain,
+                ":=" => AssignmentOp::AllocateAndAssign,
+                _    => panic!("Unkown assignment op: {}", str_op),
+            };
+
+            Assignment::new(lvalue, op, to_s(rvalue))
+        }
     )
 );
 
@@ -158,7 +167,7 @@ named!(preturn<&[u8], Return>,
 
 #[cfg(test)]
 mod tests {
-    use super::{pconst, plocal, ppath};
+    use super::{passignment, pconst, plocal, ppath, pstatic};
     use nom::{IResult};
     use asm::*;
 
@@ -176,6 +185,13 @@ mod tests {
         let l = plocal(b"local foo");
 
         assert_eq!(l, IResult::Done(EMPTY, Local::new("foo".to_string())))
+    }
+
+    #[test]
+    fn parse_static() {
+        let s = pstatic(b"static $bar");
+
+        assert_eq!(s, IResult::Done(EMPTY, Static::new("$bar".to_string())))
     }
 
     #[test]
@@ -202,5 +218,31 @@ mod tests {
         );
 
         assert_eq!(parsed_const, IResult::Done(EMPTY, expected_const))
+    }
+
+    #[test]
+    fn parse_assignment() {
+        let parsed_assignment = passignment(b"a = b");
+
+        let expected_assignment = Assignment::new(
+            "a".to_string(),
+            AssignmentOp::Plain,
+            "b".to_string()
+        );
+
+        assert_eq!(parsed_assignment, IResult::Done(EMPTY, expected_assignment))
+    }
+
+    #[test]
+    fn parse_allocate_and_assign() {
+        let parsed_assignment = passignment(b"a := b");
+
+        let expected_assignment = Assignment::new(
+            "a".to_string(),
+            AssignmentOp::AllocateAndAssign,
+            "b".to_string()
+        );
+
+        assert_eq!(parsed_assignment, IResult::Done(EMPTY, expected_assignment))
     }
 }
