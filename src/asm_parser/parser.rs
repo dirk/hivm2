@@ -35,7 +35,8 @@ named!(pub plocal<&[u8], Local>,
     chain!(
         tag!("local")     ~
         space             ~
-        name: plocal_name ,
+        name: plocal_name ~
+        pterminal         ,
 
         ||{ Local::new(name) }
     )
@@ -46,7 +47,8 @@ named!(pub pstatic<&[u8], Static>,
     chain!(
         tag!("static")     ~
         space              ~
-        name: pstatic_name ,
+        name: pstatic_name ~
+        pterminal          ,
 
         ||{ Static::new(name) }
     )
@@ -57,7 +59,8 @@ named!(pub pextern<&[u8], Extern>,
     chain!(
         tag!("extern") ~
         space          ~
-        path: ppath    ,
+        path: ppath    ~
+        pterminal      ,
 
         ||{ Extern::new(path) }
     )
@@ -81,7 +84,8 @@ named!(pub pconst<&[u8], Const>,
         tag!("const")               ~ space ~
         name: pconst_name           ~ space ~
         tag!("=")                   ~ space? ~
-        cp: _const_constructor_pair ,
+        cp: _const_constructor_pair ~
+        pterminal                   ,
 
         ||{
             let cons = cp.0.clone();
@@ -140,7 +144,8 @@ named!(passignment<&[u8], Assignment>,
     chain!(
         lvalue: alt!(plocal_name | pstatic_name) ~ space ~
         raw_op: alt!(tag!(":=") | tag!("="))     ~ space ~
-        rvalue: _identifier                      ,
+        rvalue: _identifier                      ~
+        pterminal                                ,
 
         ||{
             let op = AssignmentOp::from_str(str::from_utf8(raw_op).unwrap()).unwrap();
