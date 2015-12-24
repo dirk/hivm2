@@ -205,7 +205,7 @@ impl Fn {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Return {
     name: Option<Name>,
 }

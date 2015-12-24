@@ -21,7 +21,7 @@ named!(pconst_name<&[u8], String>,
     map!(preceded!(tag!("@"), alpha), |name| { "@".to_string() + &to_s(name) })
 );
 
-/// Parses "a.b.c"
+/// Parses a path like "a.b.c"
 named!(ppath<&[u8], Path>,
     map!(separated_nonempty_list!(tag!("."), alpha), |raw_segments: Vec<&[u8]>| {
             let segments = raw_segments.iter().map(|s| to_s(s) ).collect();
@@ -30,7 +30,7 @@ named!(ppath<&[u8], Path>,
     })
 );
 
-/// Parses "local NAME"
+/// Parses `local NAME`
 named!(plocal<&[u8], Local>,
     chain!(
         tag!("local")     ~
@@ -41,7 +41,7 @@ named!(plocal<&[u8], Local>,
     )
 );
 
-/// Parses "static $NAME"
+/// Parses `static $NAME`
 named!(pstatic<&[u8], Static>,
     chain!(
         tag!("static")     ~
@@ -52,7 +52,7 @@ named!(pstatic<&[u8], Static>,
     )
 );
 
-/// Parses "extern path1.path2"
+/// Parses `extern PATH` where path is like "foo.bar".
 named!(pextern<&[u8], Extern>,
     chain!(
         tag!("extern") ~
@@ -65,9 +65,9 @@ named!(pextern<&[u8], Extern>,
 
 /// Parses constant constructor (string, number or null)
 ///
-/// - string = "[^"]*"
-/// - number = [0-9]+
-/// - null = null
+/// - string = `"[^"]*"``
+/// - number = `[0-9]+`
+/// - null = `null`
 named!(pconst_argument<&[u8], String>,
     alt!(
         pconst_string |
@@ -91,17 +91,32 @@ named!(pconst_null<&[u8], String>,
     map!(tag!("null"), |_| { "null".to_string() })
 );
 
-/// Parses assignments
+named!(_identifier<&[u8], String>,
+    alt!(
+        pconst_name |
+        pstatic_name |
+        plocal_name
+    )
+);
+
+/// Parses assignments in the following forms:
+///
+/// - `NAME = VALUE`
+/// - `NAME := VALUE`
+///
+/// Where name can be a static or local storage and value can be any kind of storage identifier.
+///
+/// **Note:** Right now value can only be another name.
 named!(passignment<&[u8], Assignment>,
     chain!(
         lvalue: alt!(plocal_name | pstatic_name) ~ space ~
         raw_op: alt!(tag!(":=") | tag!("="))     ~ space ~
-        rvalue: alpha                            ,
+        rvalue: _identifier                      ,
 
         ||{
             let op = AssignmentOp::from_str(str::from_utf8(raw_op).unwrap()).unwrap();
 
-            Assignment::new(lvalue, op, to_s(rvalue))
+            Assignment::new(lvalue, op, rvalue)
         }
     )
 );
@@ -115,7 +130,7 @@ named!(pterminal<&[u8], ()>,
     )
 );
 
-named!(pconst_constructor_pair<&[u8], (Path, Option<String>) >,
+named!(_const_constructor_pair<&[u8], (Path, Option<String>)>,
     chain!(
         cons: ppath ~ space ~
         arg:  alt!(
@@ -127,13 +142,13 @@ named!(pconst_constructor_pair<&[u8], (Path, Option<String>) >,
     )
 );
 
-/// Parses "const @NAME = constructor argument?"
+/// Parses `const @NAME = CONSTRUCTOR ARGUMENT?``
 named!(pconst<&[u8], Const>,
     chain!(
         tag!("const")               ~ space ~
         name: pconst_name           ~ space ~
         tag!("=")                   ~ space? ~
-        cp: pconst_constructor_pair ,
+        cp: _const_constructor_pair ,
 
         ||{
             let cons = cp.0.clone();
@@ -144,16 +159,17 @@ named!(pconst<&[u8], Const>,
     )
 );
 
-named!(preturn_arg<&[u8], String>,
-    preceded!(space, map!(alpha, |name| { to_s(name) }))
-);
-
-/// Parses "return"
+/// Parses the two patterns for returns:
+///
+/// - `return`
+/// - `return ARGUMENT`
 named!(preturn<&[u8], Return>,
     chain!(
-        tag!("return")         ~
-        arg: opt!(preturn_arg) ~
-        pterminal              ,
+        tag!("return") ~
+        arg: alt!(
+                 pterminal                                 => { |_| None } |
+                 delimited!(space, _identifier, pterminal) => { |arg| Some(arg) }
+             ),
 
         ||{ Return::new(arg) }
     )
@@ -161,7 +177,7 @@ named!(preturn<&[u8], Return>,
 
 #[cfg(test)]
 mod tests {
-    use super::{passignment, pconst, plocal, ppath, pstatic};
+    use super::{passignment, pconst, plocal, ppath, preturn, pstatic};
     use nom::{IResult};
     use asm::*;
 
@@ -238,5 +254,21 @@ mod tests {
         );
 
         assert_eq!(parsed_assignment, IResult::Done(EMPTY, expected_assignment))
+    }
+
+    #[test]
+    fn parse_return_with_argument() {
+        let parsed_return   = preturn(b"return foo");
+        let expected_return = Return::new(Some("foo".to_string()));
+
+        assert_eq!(parsed_return, IResult::Done(EMPTY, expected_return))
+    }
+
+    #[test]
+    fn parse_return_without_argument() {
+        let parsed_return   = preturn(b"return");
+        let expected_return = Return::new(None);
+
+        assert_eq!(parsed_return, IResult::Done(EMPTY, expected_return))
     }
 }
