@@ -51,6 +51,7 @@ pub enum Statement {
     StatementConst(Const),
     StatementStatic(Static),
     StatementLocal(Local),
+    StatementAssignment(Assignment),
     StatementFn(Fn),
     StatementReturn(Return),
     StatementCall(Call),
@@ -130,7 +131,7 @@ impl Const {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Static {
     name: Name,
 }
@@ -149,6 +150,29 @@ pub struct Local {
 impl Local {
     pub fn new(name: Name) -> Local {
         Local { name: name }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum AssignmentOp {
+    Plain,
+    AllocateAndAssign,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Assignment {
+    lvalue: Name,
+    operator: AssignmentOp,
+    rvalue: Name,
+}
+
+impl Assignment {
+    pub fn new(lvalue: Name, op: AssignmentOp, rvalue: Name) -> Assignment {
+        Assignment {
+            lvalue: lvalue,
+            operator: op,
+            rvalue: rvalue,
+        }
     }
 }
 
