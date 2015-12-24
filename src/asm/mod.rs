@@ -65,7 +65,9 @@ pub enum Statement {
 }
 
 #[derive(Debug)]
-pub enum ParseError { }
+pub enum ParseError<'a> {
+    InvalidOperator(&'a str),
+}
 
 pub type Name = String;
 
@@ -157,6 +159,16 @@ impl Local {
 pub enum AssignmentOp {
     Plain,
     AllocateAndAssign,
+}
+
+impl AssignmentOp {
+    pub fn from_str(op: &str) -> Result<AssignmentOp, ParseError> {
+        match op {
+            "="  => Ok(AssignmentOp::Plain),
+            ":=" => Ok(AssignmentOp::AllocateAndAssign),
+            _    => Err(ParseError::InvalidOperator(op)),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]

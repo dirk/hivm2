@@ -99,13 +99,7 @@ named!(passignment<&[u8], Assignment>,
         rvalue: alpha                            ,
 
         ||{
-            let str_op = str::from_utf8(raw_op).unwrap();
-
-            let op = match str_op {
-                "="  => AssignmentOp::Plain,
-                ":=" => AssignmentOp::AllocateAndAssign,
-                _    => panic!("Unkown assignment op: {}", str_op),
-            };
+            let op = AssignmentOp::from_str(str::from_utf8(raw_op).unwrap()).unwrap();
 
             Assignment::new(lvalue, op, to_s(rvalue))
         }
