@@ -9,6 +9,7 @@ A high-level representation of the program's execution. Assembly is entirely unt
 - const
 - static
 - local
+- defn
 - fn
 - return
 - call
@@ -29,7 +30,7 @@ mod hello_world
 
 const @hello_world = _.std.string.new "Hello world!"
 
-fn main() {
+defn main() {
   message := @hello_world
   call _.std.print(message)
 
@@ -65,7 +66,7 @@ Static variables are prefixed with `$`, defined at the beginning of the module (
 static $foo
 const @bar = _.std.string.new "Baz!"
 
-fn entry() {
+defn entry() {
   $foo = @bar
 }
 ```
@@ -75,7 +76,7 @@ fn entry() {
 Local variables have no prefix. They must also have their slot allocated (on the stack frame) with `local` before being used, however the `:=` allocate-and-assign shorthand is provided for this common use case.
 
 ```ruby
-fn foo() {
+defn foo() {
   # Explicit allocation then assignment
   local bar
   bar = @something
@@ -101,12 +102,12 @@ const @hello_world = _.std.string.new "Hello world!"
 
 Will be expanded at load-time into a `call` to `_.std.string.new`. The return of that call will be placed in `@hello_world`.
 
-#### `fn`
+#### `defn`
 
-Assembly provides both named and anonymous functions. Named functions may be defined at any level of the module but cannot capture any local variables (ie. no closures). Anonymous functions may be defined inside any other function and can capture local variables (ie. closures allowed).
+Assembly provides both named and anonymous functions. Named functions (`defn`) may be defined at any level of the module but cannot capture any local variables (ie. no closures). Anonymous functions (`fn`) may be defined inside any other function and can capture local variables (ie. closures allowed).
 
 ```ruby
-fn foo() {
+defn foo() {
   bar := @some_thing
 
   baz := fn(x) {
@@ -174,7 +175,7 @@ if {
 Standard conditional branching control structure. `if` requires a basic block ending with a `test` statement and must be followed by a `then` statement.
 
 ```ruby
-fn foo() {
+defn foo() {
   bar := ...
 
   if { test bar } then {
@@ -196,7 +197,7 @@ fn foo() {
 While will repeat while the condition is not the null value. Break will immediately jump to the position immediately after the nearest while. The condition of while must be a block ending with a `test` statement.
 
 ```ruby
-fn foo() {
+defn foo() {
   bar := ...
   baz := ...
 
@@ -221,7 +222,7 @@ Define an external module to be used by the current module.
 mod a
 extern b
 
-fn foo() {
+defn foo() {
   bar := call b.bar()
 
   return bar
