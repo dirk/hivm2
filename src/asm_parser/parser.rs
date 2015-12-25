@@ -1,12 +1,52 @@
 #![allow(dead_code)]
 
-use nom::{alpha, digit, eof, space, IResult};
-use asm::{Assignment, AssignmentOp, Const, Extern, Local, Path, Return, Static};
+use nom::{alpha, digit, eof, is_space, space, IResult, Needed};
 use std::str;
+use asm::{
+    Assignment,
+    AssignmentOp,
+    Const,
+    Extern,
+    Local,
+    Mod,
+    Path,
+    Program,
+    Return,
+    Static,
+    Statement,
+};
 
 fn to_s(i: &[u8]) -> String {
     // String::from_utf8_lossy(i).into_owned()
     str::from_utf8(i).unwrap().to_string()
+}
+
+pub fn pprogram(input: &[u8]) -> IResult<&[u8], Program> {
+    let result = chain!(input,
+        stmts: many0!(pstatement) ~
+        pterminal?                ,
+
+        ||{ Program::with_stmts(stmts) }
+    );
+
+    match result {
+        IResult::Done(remaining, _) => {
+            if remaining.len() > 0 {
+                IResult::Incomplete(Needed::Size(remaining.len()))
+            } else {
+                result
+            }
+        },
+        _ => result
+    }
+}
+
+pub fn pstatement(input: &[u8]) -> IResult<&[u8], Statement> {
+    alt!(input,
+        plocal  => { |l| Statement::StatementLocal(l)  } |
+        pstatic => { |s| Statement::StatementStatic(s) } |
+        pmod    => { |m| Statement::StatementMod(m)    }
+    )
 }
 
 named!(plocal_name<&[u8], String>,
@@ -29,6 +69,17 @@ named!(ppath<&[u8], Path>,
             Path::new(segments)
     })
 );
+
+/// Parses a mod definition
+pub fn pmod(input: &[u8]) -> IResult<&[u8], Mod> {
+    chain!(input,
+        tag!("mod") ~ space ~
+        path: ppath ~
+        pterminal   ,
+
+        ||{ Mod::new(path) }
+    )
+}
 
 /// Parses `local NAME`
 pub fn plocal(input: &[u8]) -> IResult<&[u8], Local> {
@@ -155,14 +206,27 @@ pub fn passignment(input: &[u8]) -> IResult<&[u8], Assignment> {
     )
 }
 
-named!(pterminal<&[u8], ()>,
-    chain!(
-        space? ~
-        eof    ,
+fn gobble<F: Fn(u8) -> bool>(input: &[u8], test: F) -> &[u8] {
+    for (index, item) in input.iter().enumerate() {
+        if !test(*item) {
+            return &input[index..]
+        }
+    }
 
-        ||{ () }
-    )
-);
+    input
+}
+
+pub fn pterminal(input: &[u8]) -> IResult<&[u8], ()> {
+    let input = gobble(input, is_space);
+
+    // Allow EOF to count as a terminal but DON'T consume it if it matches
+    match eof(input) {
+        IResult::Done(_, _) => { return IResult::Done(input, ()) },
+        _ => (),
+    }
+
+    map!(input, tag!("\n"), { |_| () })
+}
 
 /// Parses the two patterns for returns:
 ///
@@ -182,7 +246,7 @@ pub fn preturn(input: &[u8]) -> IResult<&[u8], Return> {
 
 #[cfg(test)]
 mod tests {
-    use super::{passignment, pconst, plocal, ppath, preturn, pstatic};
+    use super::{passignment, pconst, plocal, ppath, pprogram, preturn, pstatic};
     use nom::{IResult};
     use asm::*;
 
@@ -275,5 +339,42 @@ mod tests {
         let expected_return = Return::new(None);
 
         assert_eq!(parsed_return, IResult::Done(EMPTY, expected_return))
+    }
+
+    #[test]
+    fn parse_trivial_programs() {
+        // Totally empty program
+        assert_eq!(
+            pprogram(b""),
+            IResult::Done(EMPTY, Program::new())
+        );
+
+        let l = Local::new("foo".to_string());
+        let p = Program::with_stmts(vec![Statement::StatementLocal(l)]);
+
+        // Without a trailing newline before EOF
+        assert_eq!(
+            pprogram(b"local foo"),
+            IResult::Done(EMPTY, p.clone())
+        );
+
+        // With a trailing newline before EOF
+        assert_eq!(
+            pprogram(b"local foo\n"),
+            IResult::Done(EMPTY, p.clone())
+        )
+    }
+
+    #[test]
+    fn parse_basic_program() {
+        let mut expected_program = Program::new();
+
+        expected_program.push_mod(Mod::new(Path::with_name("foo".to_string())));
+        expected_program.push_static(Static::new("$bar".to_string()));
+
+        assert_eq!(
+            pprogram(b"mod foo\nstatic $bar"),
+            IResult::Done(EMPTY, expected_program)
+        )
     }
 }
