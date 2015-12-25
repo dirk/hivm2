@@ -1,39 +1,43 @@
 #![allow(dead_code)]
 
-#[derive(PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Program {
     stmts: Vec<Statement>
 }
 
 impl Program {
-    fn new() -> Program {
+    pub fn new() -> Program {
         Program {
             stmts: Vec::new(),
         }
     }
 
-    fn push_mod(&mut self, m: Mod) {
+    pub fn with_stmts(stmts: Vec<Statement>) -> Program {
+        Program { stmts: stmts }
+    }
+
+    pub fn push_mod(&mut self, m: Mod) {
         self.stmts.push(Statement::StatementMod(m));
     }
 
-    fn push_extern(&mut self, e: Extern) {
+    pub fn push_extern(&mut self, e: Extern) {
         self.stmts.push(Statement::StatementExtern(e));
     }
 
-    fn push_static(&mut self, s: Static) {
+    pub fn push_static(&mut self, s: Static) {
         self.stmts.push(Statement::StatementStatic(s));
     }
 
-    fn push_fn(&mut self, f: Fn) {
+    pub fn push_fn(&mut self, f: Fn) {
         self.stmts.push(Statement::StatementFn(f));
     }
 
-    fn push_return(&mut self, r: Return) {
+    pub fn push_return(&mut self, r: Return) {
         self.stmts.push(Statement::StatementReturn(r));
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct BasicBlock {
     stmts: Vec<Statement>
 }
@@ -44,7 +48,7 @@ impl BasicBlock {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Statement {
     StatementMod(Mod),
     StatementExtern(Extern),
@@ -94,18 +98,18 @@ impl Path {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Mod {
     path: Path,
 }
 
 impl Mod {
-    fn new(path: Path) -> Mod {
+    pub fn new(path: Path) -> Mod {
         Mod { path: path }
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Extern {
     path: Path,
 }
@@ -188,7 +192,7 @@ impl Assignment {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Fn {
     name: Name,
     parameters: Vec<Name>,
@@ -216,7 +220,7 @@ impl Return {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Call {
     name: Name,
     arguments: Vec<Name>,
@@ -231,36 +235,36 @@ impl Call {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Test {
     name: Name,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct If {
     condition: BasicBlock,
     then_sibling: Then,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Then {
     body: BasicBlock,
     else_sibling: Option<Else>
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Else {
     body: BasicBlock,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct While {
     body: BasicBlock,
     // Some if this While is the lead and it's followed by a Do
     do_sibling: Option<Box<Do>>,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Do {
     body: BasicBlock,
     // Some if this Do is lead and it's followed by a While
