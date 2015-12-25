@@ -42,6 +42,8 @@ pub fn pprogram(input: &[u8]) -> IResult<&[u8], Program> {
 }
 
 pub fn pstatement(input: &[u8]) -> IResult<&[u8], Statement> {
+    let input = gobble(input, is_space);
+
     alt!(input,
         plocal  => { |l| Statement::StatementLocal(l)  } |
         pstatic => { |s| Statement::StatementStatic(s) } |
@@ -252,6 +254,11 @@ mod tests {
 
     const EMPTY: &'static [u8] = b"";
 
+    // Create a `IResult::Done` with no remaining input and the given output.
+    fn done<T>(output: T) -> IResult<&'static [u8], T> {
+        IResult::Done(EMPTY, output)
+    }
+
     #[test]
     fn parse_path() {
         assert_eq!(ppath(b"a"), IResult::Done(EMPTY, Path::from_str("a").unwrap()));
@@ -376,5 +383,13 @@ mod tests {
             pprogram(b"mod foo\nstatic $bar"),
             IResult::Done(EMPTY, expected_program)
         )
+    }
+
+    #[test]
+    fn tolerates_whitespace_before_statements() {
+        let m = Mod::new(Path::with_name("foo".to_string()));
+        let p = Program::with_stmts(vec![Statement::StatementMod(m)]);
+
+        assert_eq!(pprogram(b" \tmod foo"), done(p))
     }
 }
