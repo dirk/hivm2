@@ -16,7 +16,14 @@ use asm::{
     Statement,
 };
 
-fn to_s(i: &[u8]) -> String {
+/// `u8` byte array that all parsing functions use for input/remaining parse subject data.
+pub type PBytes<'a> = &'a[u8];
+
+/// Alias for Nom's `IResult` that includes the `PBytes` byte array type alias for subject data.
+pub type PResult<'a, O> = IResult<PBytes<'a>, O>;
+
+/// Convert a byte array to a heap-allocated `String`.
+fn to_s(i: PBytes) -> String {
     // String::from_utf8_lossy(i).into_owned()
     str::from_utf8(i).unwrap().to_string()
 }
@@ -154,13 +161,14 @@ pub fn pconst(input: &[u8]) -> IResult<&[u8], Const> {
 /// - string = `"[^"]*"``
 /// - number = `[0-9]+`
 /// - null = `null`
-named!(pconst_argument<&[u8], String>,
-    alt!(
+pub fn pconst_argument(input: PBytes) -> PResult<String> {
+    alt!(input,
         pconst_string |
         pconst_number |
         pconst_null
     )
-);
+}
+
 named!(pconst_string<&[u8], String>,
     chain!(
         tag!("\"")               ~
