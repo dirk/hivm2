@@ -52,11 +52,15 @@ pub fn pstatement(input: PBytes) -> PResult<Statement> {
     let input = gobble(input, is_space);
 
     alt!(input,
-        pmod    => { |m| Statement::StatementMod(m)    } |
-        pextern => { |e| Statement::StatementExtern(e) } |
-        pconst  => { |c| Statement::StatementConst(c)  } |
-        pstatic => { |s| Statement::StatementStatic(s) } |
-        plocal  => { |l| Statement::StatementLocal(l)  }
+        pmod        => { |m| Statement::StatementMod(m)    } |
+        pextern     => { |e| Statement::StatementExtern(e) } |
+        pconst      => { |c| Statement::StatementConst(c)  } |
+        pstatic     => { |s| Statement::StatementStatic(s) } |
+        plocal      => { |l| Statement::StatementLocal(l)  } |
+        preturn     => { |r| Statement::StatementReturn(r) } |
+
+        // NOTE: Assignment must come last since it will consume any alphanumeric word.
+        passignment => { |a| Statement::StatementAssignment(a) }
     )
 }
 
@@ -388,11 +392,20 @@ mod tests {
     fn parse_basic_program() {
         let mut expected_program = Program::new();
 
-        expected_program.push_mod(Mod::new(Path::with_name("foo".to_string())));
-        expected_program.push_static(Static::new("$bar".to_string()));
+        let m = Mod::new(Path::with_name("foo".to_string()));
+        let s = Static::new("$bar".to_string());
+        let a = Assignment::new(
+            "baz".to_string(),
+            AssignmentOp::AllocateAndAssign,
+            "$bar".to_string(),
+        );
+
+        expected_program.push_mod(m);
+        expected_program.push_static(s);
+        expected_program.push_assignment(a);
 
         assert_eq!(
-            pprogram(b"mod foo\nstatic $bar"),
+            pprogram(b"mod foo\nstatic $bar\nbaz := $bar"),
             IResult::Done(EMPTY, expected_program)
         )
     }

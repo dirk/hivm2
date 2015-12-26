@@ -28,6 +28,10 @@ impl Program {
         self.stmts.push(Statement::StatementStatic(s));
     }
 
+    pub fn push_assignment(&mut self, a: Assignment) {
+        self.stmts.push(Statement::StatementAssignment(a));
+    }
+
     pub fn push_fn(&mut self, f: Fn) {
         self.stmts.push(Statement::StatementFn(f));
     }
