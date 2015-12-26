@@ -48,36 +48,40 @@ pub fn pprogram(input: &[u8]) -> IResult<&[u8], Program> {
     }
 }
 
-pub fn pstatement(input: &[u8]) -> IResult<&[u8], Statement> {
+pub fn pstatement(input: PBytes) -> PResult<Statement> {
     let input = gobble(input, is_space);
 
     alt!(input,
-        plocal  => { |l| Statement::StatementLocal(l)  } |
+        pmod    => { |m| Statement::StatementMod(m)    } |
+        pextern => { |e| Statement::StatementExtern(e) } |
+        pconst  => { |c| Statement::StatementConst(c)  } |
         pstatic => { |s| Statement::StatementStatic(s) } |
-        pmod    => { |m| Statement::StatementMod(m)    }
+        plocal  => { |l| Statement::StatementLocal(l)  }
     )
 }
 
-named!(plocal_name<&[u8], String>,
+named!(plocal_name<PBytes, String>,
     map!(alpha, |name| { to_s(name) })
 );
 
-named!(pstatic_name<&[u8], String>,
+named!(pstatic_name<PBytes, String>,
     map!(preceded!(tag!("$"), alpha), |name| { "$".to_string() + &to_s(name) })
 );
 
-named!(pconst_name<&[u8], String>,
+named!(pconst_name<PBytes, String>,
     map!(preceded!(tag!("@"), alpha), |name| { "@".to_string() + &to_s(name) })
 );
 
 /// Parses a path like "a.b.c"
-named!(ppath<&[u8], Path>,
-    map!(separated_nonempty_list!(tag!("."), alpha), |raw_segments: Vec<&[u8]>| {
+pub fn ppath(input: PBytes) -> PResult<Path> {
+    map!(input,
+        separated_nonempty_list!(tag!("."), alpha), |raw_segments: Vec<&[u8]>| {
             let segments = raw_segments.iter().map(|s| to_s(s) ).collect();
 
             Path::new(segments)
-    })
-);
+        }
+    )
+}
 
 /// Parses a mod definition
 pub fn pmod(input: &[u8]) -> IResult<&[u8], Mod> {
@@ -226,7 +230,7 @@ fn gobble<F: Fn(u8) -> bool>(input: &[u8], test: F) -> &[u8] {
     input
 }
 
-pub fn pterminal(input: &[u8]) -> IResult<&[u8], ()> {
+pub fn pterminal(input: PBytes) -> PResult<()> {
     let input = gobble(input, is_space);
 
     // Allow EOF to count as a terminal but DON'T consume it if it matches
