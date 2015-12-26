@@ -48,7 +48,11 @@ pub struct BasicBlock {
 
 impl BasicBlock {
     fn new() -> BasicBlock {
-        BasicBlock { stmts: vec![] }
+        BasicBlock { stmts: vec![], }
+    }
+
+    pub fn with_stmts(stmts: Vec<Statement>) -> BasicBlock {
+        BasicBlock { stmts: stmts, }
     }
 }
 
@@ -248,7 +252,7 @@ pub struct Defn {
 }
 
 impl Defn {
-    fn new(name: Name, parameters: Vec<Name>, body: BasicBlock) -> Defn {
+    pub fn new(name: Name, parameters: Vec<Name>, body: BasicBlock) -> Defn {
         Defn {
             name: name,
             parameters: parameters,

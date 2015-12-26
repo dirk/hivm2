@@ -1,11 +1,13 @@
 #![allow(dead_code)]
 
-use nom::{alpha, digit, eof, is_space, space, IResult, Needed};
+use nom::{alpha, digit, eof, is_space, multispace, space, IResult, Needed};
 use std::str;
 use asm::{
     Assignment,
     AssignmentOp,
+    BasicBlock,
     Const,
+    Defn,
     Extern,
     Local,
     Mod,
@@ -246,13 +248,64 @@ fn gobble<F: Fn(u8) -> bool>(input: &[u8], test: F) -> &[u8] {
 pub fn pterminal(input: PBytes) -> PResult<()> {
     let input = gobble(input, is_space);
 
-    // Allow EOF to count as a terminal but DON'T consume it if it matches
-    match eof(input) {
-        IResult::Done(_, _) => { return IResult::Done(input, ()) },
-        _ => (),
+    // Peek to see if the next input matches the given function
+    fn has_next<F>(input: PBytes, f: F) -> bool
+        where F: Fn(PBytes) -> IResult<PBytes, PBytes> {
+
+        match f(input) {
+            IResult::Done(_, _) => true,
+            _ => false
+        }
+    }
+
+    named!(right_brace, tag!("}"));
+
+    if has_next(input, eof) {
+        return IResult::Done(input, ())
+    }
+    if has_next(input, right_brace) {
+        return IResult::Done(input, ())
     }
 
     map!(input, tag!("\n"), { |_| () })
+}
+
+fn pbasicblock(input: PBytes) -> PResult<BasicBlock> {
+    chain!(input,
+        tag!("{")                 ~ multispace? ~
+        stmts: many0!(pstatement) ~ multispace? ~
+        tag!("}") ,
+
+        ||{ BasicBlock::with_stmts(stmts) }
+    )
+}
+
+pub fn pdefn(input: PBytes) -> PResult<Defn> {
+    named!(comma<&[u8], ()>,
+        chain!(
+            opt!(space) ~ tag!(",") ~ opt!(space),
+            ||{ () }
+        )
+    );
+
+    named!(parameters<&[u8], Vec<String> >,
+        chain!(
+            tag!("(")                                 ~ space? ~
+            args: separated_list!(comma, _identifier) ~ space? ~
+            tag!(")")                                 ,
+
+            ||{ args }
+        )
+    );
+
+    chain!(input,
+        tag!("defn")           ~ space ~
+        name: alpha            ~
+        parameters: parameters ~ space? ~
+        body: pbasicblock      ,
+
+        || { Defn::new(to_s(name), parameters, body) }
+    )
 }
 
 /// Parses the two patterns for returns:
@@ -273,7 +326,7 @@ pub fn preturn(input: &[u8]) -> IResult<&[u8], Return> {
 
 #[cfg(test)]
 mod tests {
-    use super::{passignment, pconst, plocal, ppath, pprogram, preturn, pstatic};
+    use super::{passignment, pbasicblock, pconst, pdefn, plocal, ppath, pprogram, preturn, pstatic};
     use nom::{IResult};
     use asm::*;
 
@@ -282,6 +335,14 @@ mod tests {
     // Create a `IResult::Done` with no remaining input and the given output.
     fn done<T>(output: T) -> IResult<&'static [u8], T> {
         IResult::Done(EMPTY, output)
+    }
+
+    fn unwrap_iresult<O>(result: IResult<&[u8], O>) -> O {
+        match result {
+            IResult::Done(_, output)    => output,
+            IResult::Error(error)       => panic!("called `unwrap_iresult()` on an `Error` value: {:?}", error),
+            IResult::Incomplete(needed) => panic!("called `unwrap_iresult()` on an `Incomplete` value: {:?}", needed),
+        }
     }
 
     #[test]
@@ -355,6 +416,38 @@ mod tests {
         );
 
         assert_eq!(parsed_assignment, IResult::Done(EMPTY, expected_assignment))
+    }
+
+    #[test]
+    fn parse_basic_block_with_right_brace_as_terminal() {
+        let expected_bb = BasicBlock::with_stmts(vec![
+            Statement::StatementLocal(Local::new("bar".to_string()))
+        ]);
+
+        assert_eq!(
+            pbasicblock(b"{local bar}"),
+            done(expected_bb)
+        )
+    }
+
+    #[test]
+    fn parse_defn_without_params() {
+        let body = BasicBlock::with_stmts(vec![
+            Statement::StatementAssignment(unwrap_iresult(passignment(b"bar := baz")))
+        ]);
+
+        let expected_defn = Defn::new(
+            "foo".to_string(),
+            vec![],
+            body
+        );
+
+        let parsed_defn = pdefn(b"defn foo() {\n bar := baz\n}");
+
+        assert_eq!(
+            parsed_defn,
+            done(expected_defn)
+        )
     }
 
     #[test]
