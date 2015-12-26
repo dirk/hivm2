@@ -229,6 +229,17 @@ defn foo() {
 }
 ```
 
+### Values
+
+Certain patterns and statements may also function as values in assignment, `call`, `return`, and `test` statements. These statements are:
+
+- Names of const, static, or local storage (unless otherwise specified by the statement)
+- Paths to external const or static storage
+- Anonymous functions (`fn`)
+- Call statements (`call`)
+
+**Note**: Names, paths, and anonymous functions are *not* considered statements and as such may *only* appear as values.
+
 ### Macros
 
 Assembly provides an optional set of macros to make interfacing with the builtins easier. These can be enabled with the `macros builtins` keyword.

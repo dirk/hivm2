@@ -32,8 +32,8 @@ impl Program {
         self.stmts.push(Statement::StatementAssignment(a));
     }
 
-    pub fn push_fn(&mut self, f: Fn) {
-        self.stmts.push(Statement::StatementFn(f));
+    pub fn push_defn(&mut self, d: Defn) {
+        self.stmts.push(Statement::StatementDefn(d));
     }
 
     pub fn push_return(&mut self, r: Return) {
@@ -60,6 +60,7 @@ pub enum Statement {
     StatementStatic(Static),
     StatementLocal(Local),
     StatementAssignment(Assignment),
+    StatementDefn(Defn),
     StatementFn(Fn),
     StatementReturn(Return),
     StatementCall(Call),
@@ -70,6 +71,25 @@ pub enum Statement {
     StatementWhile(While),
     StatementDo(Do),
     StatementBreak,
+}
+
+/// Represents any node that can potentially act as a value in the assembly AST.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Value {
+    Name(Name),
+    Path(Path),
+    Fn(Fn),
+    Call(Call),
+}
+
+impl Value {
+    pub fn with_name(name: Name) -> Value {
+        Value::Name(name)
+    }
+
+    pub fn from_name_str(s: &str) -> Value {
+        Value::Name(s.to_string())
+    }
 }
 
 #[derive(Debug)]
@@ -87,6 +107,7 @@ pub struct Path {
 
 impl Path {
     pub fn new(segments: Vec<Name>) -> Path {
+        // TODO: Validate that all segments before the last are plain (ie. not const or static).
         Path { segments: segments }
     }
 
@@ -183,11 +204,11 @@ impl AssignmentOp {
 pub struct Assignment {
     lvalue: Name,
     operator: AssignmentOp,
-    rvalue: Name,
+    rvalue: Value,
 }
 
 impl Assignment {
-    pub fn new(lvalue: Name, op: AssignmentOp, rvalue: Name) -> Assignment {
+    pub fn new(lvalue: Name, op: AssignmentOp, rvalue: Value) -> Assignment {
         Assignment {
             lvalue: lvalue,
             operator: op,
@@ -196,20 +217,34 @@ impl Assignment {
     }
 }
 
+/// Represents a named function.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Fn {
+pub struct Defn {
     name: Name,
     parameters: Vec<Name>,
     body: BasicBlock,
 }
 
-impl Fn {
-    fn new(name: Name, parameters: Vec<Name>, body: BasicBlock) -> Fn {
-        Fn {
+impl Defn {
+    fn new(name: Name, parameters: Vec<Name>, body: BasicBlock) -> Defn {
+        Defn {
             name: name,
             parameters: parameters,
             body: body,
         }
+    }
+}
+
+/// Represents an anonymous function value.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Fn {
+    parameters: Vec<Name>,
+    body: BasicBlock,
+}
+
+impl Fn {
+    pub fn new(parameters: Vec<Name>, body: BasicBlock) -> Fn {
+        Fn { parameters: parameters, body: body, }
     }
 }
 
@@ -329,11 +364,11 @@ mod tests {
     }
 
     #[test]
-    fn push_fn() {
+    fn push_defn() {
         assert_pushes(|p: &mut Program| {
             let bb = BasicBlock::new();
-            let f = Fn::new("a_fn".to_string(), vec![], bb);
-            p.push_fn(f);
+            let d = Defn::new("a_defn".to_string(), vec![], bb);
+            p.push_defn(d);
         })
     }
 

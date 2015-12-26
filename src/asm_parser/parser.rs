@@ -14,6 +14,7 @@ use asm::{
     Return,
     Static,
     Statement,
+    Value,
 };
 
 /// `u8` byte array that all parsing functions use for input/remaining parse subject data.
@@ -78,12 +79,13 @@ named!(pconst_name<PBytes, String>,
 
 /// Parses a path like "a.b.c"
 pub fn ppath(input: PBytes) -> PResult<Path> {
-    map!(input,
-        separated_nonempty_list!(tag!("."), alpha), |raw_segments: Vec<&[u8]>| {
-            let segments = raw_segments.iter().map(|s| to_s(s) ).collect();
+    named!(name<PBytes, String>,
+        alt!(plocal_name | pstatic_name | pconst_name)
+    );
 
-            Path::new(segments)
-        }
+    map!(input,
+        separated_nonempty_list!(tag!("."), name),
+        |segments| { Path::new(segments) }
     )
 }
 
@@ -201,6 +203,13 @@ named!(_identifier<&[u8], String>,
     )
 );
 
+// Parse a value type
+fn ppvalue(input: PBytes) -> PResult<Value> {
+    alt!(input,
+        _identifier => { |i| Value::with_name(i) }
+    )
+}
+
 /// Parses assignments in the following forms:
 ///
 /// - `NAME = VALUE`
@@ -213,7 +222,7 @@ pub fn passignment(input: &[u8]) -> IResult<&[u8], Assignment> {
     chain!(input,
         lvalue: alt!(plocal_name | pstatic_name) ~ space ~
         raw_op: alt!(tag!(":=") | tag!("="))     ~ space ~
-        rvalue: _identifier                      ~
+        rvalue: ppvalue                          ~
         pterminal                                ,
 
         ||{
@@ -329,7 +338,7 @@ mod tests {
         let expected_assignment = Assignment::new(
             "a".to_string(),
             AssignmentOp::Plain,
-            "b".to_string()
+            Value::from_name_str("b")
         );
 
         assert_eq!(parsed_assignment, IResult::Done(EMPTY, expected_assignment))
@@ -342,7 +351,7 @@ mod tests {
         let expected_assignment = Assignment::new(
             "a".to_string(),
             AssignmentOp::AllocateAndAssign,
-            "b".to_string()
+            Value::from_name_str("b")
         );
 
         assert_eq!(parsed_assignment, IResult::Done(EMPTY, expected_assignment))
@@ -397,7 +406,7 @@ mod tests {
         let a = Assignment::new(
             "baz".to_string(),
             AssignmentOp::AllocateAndAssign,
-            "$bar".to_string(),
+            Value::from_name_str("$bar"),
         );
 
         expected_program.push_mod(m);
