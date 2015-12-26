@@ -85,7 +85,7 @@ pub fn ppath(input: PBytes) -> PResult<Path> {
 
     map!(input,
         separated_nonempty_list!(tag!("."), name),
-        |segments| { Path::new(segments) }
+        |segments| { Path::new(segments).unwrap() }
     )
 }
 

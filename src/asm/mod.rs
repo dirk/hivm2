@@ -95,6 +95,7 @@ impl Value {
 #[derive(Debug)]
 pub enum ParseError<'a> {
     InvalidOperator(&'a str),
+    InvalidSegment(String),
 }
 
 pub type Name = String;
@@ -106,20 +107,41 @@ pub struct Path {
 }
 
 impl Path {
-    pub fn new(segments: Vec<Name>) -> Path {
-        // TODO: Validate that all segments before the last are plain (ie. not const or static).
-        Path { segments: segments }
+    pub fn new<'a>(segments: Vec<Name>) -> Result<Path, ParseError<'a>> {
+        let len = segments.len();
+
+        if len > 1 {
+            // Get all elements before the last
+            let front = segments[0..len - 1].to_vec();
+
+            // Return error if any of the front segments are const or static
+            for segment in front.iter() {
+                if segment.starts_with("@") {
+                    return Err(ParseError::InvalidSegment(
+                        format!("Found constant '{:?}' inside Path", segment)
+                    ))
+                }
+
+                if segment.starts_with("$") {
+                    return Err(ParseError::InvalidSegment(
+                        format!("Found static '{:?}' inside Path", segment)
+                    ))
+                }
+            }
+        }
+
+        Ok(Path { segments: segments })
     }
 
     pub fn with_name(name: Name) -> Path {
-        Path::new(vec![name])
+        Path::new(vec![name]).unwrap()
     }
 
     pub fn from_str(s: &str) -> Result<Path, ParseError> {
         let parts = s.split('.');
         let segments = parts.map(|p| p.to_string() ).collect();
 
-        Ok(Path { segments: segments })
+        return Path::new(segments)
     }
 }
 
@@ -330,7 +352,20 @@ mod tests {
         assert_eq!(p1.segments, ["a"]);
 
         let p2 = Path::from_str("a.b").unwrap();
-        assert_eq!(p2.segments, ["a", "b"])
+        assert_eq!(p2.segments, ["a", "b"]);
+
+        // Check that it parses one with a constant at the end.
+        let p3 = Path::from_str("a.b.@c");
+        let expected_p3 = Path { segments: vec!["a".to_string(), "b".to_string(), "@c".to_string()], };
+        assert!(p3.is_ok());
+        assert_eq!(p3.unwrap(), expected_p3)
+    }
+
+    #[test]
+    fn errors_on_bad_path() {
+        assert_eq!(Path::from_str("$a.b").is_err(), true);
+
+        assert_eq!(Path::from_str("a.@b.c").is_err(), true)
     }
 
     #[test]
