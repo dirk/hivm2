@@ -1,6 +1,9 @@
 #![allow(dead_code)]
 
-use nom::{alpha, digit, eof, is_space, multispace, space, IResult, Needed};
+use nom::{
+    alpha, digit, eof, is_space, multispace, space,
+    ErrorKind, Err as NomErr, IResult, Needed
+};
 use std::str;
 use asm::{
     Assignment,
@@ -206,16 +209,33 @@ fn ppidentifier(input: PBytes) -> PResult<String> {
     )
 }
 
+type TryFn<T> = Box<Fn(PBytes) -> PResult<T>>;
+
+/// Tries each of a given set of matchers, returning the first one that matches successfully.
+/// If all fail then it returns an `IResult::Error` at the position where it failed.
+fn try_each<'a, T>(input: PBytes<'a>, matchers: Vec<TryFn<T>>) -> PResult<'a, T> {
+    for matcher in matchers.iter() {
+        let result = matcher(input);
+
+        match result {
+            IResult::Done(_, _) => { return result},
+            _ => (),
+        }
+    }
+
+    return IResult::Error(
+        NomErr::Position(ErrorKind::Alt, input)
+    )
+}
+
 // Parse a value type
 fn ppvalue(input: PBytes) -> PResult<Value> {
     named!(match_fn, tag!("fn"));
 
-    if peek(input, match_fn) {
-        map!(input, pfn, { |f| Value::Fn(f) })
-
-    } else {
-        map!(input, ppidentifier, { |i| Value::with_name(i) })
-    }
+    try_each(input, vec![
+        Box::new(|i| map!(i, pfn, |f| Value::Fn(f))),
+        Box::new(|i| map!(i, ppidentifier, |i| Value::with_name(i)))
+    ])
 }
 
 /// Parses assignments in the following forms:
