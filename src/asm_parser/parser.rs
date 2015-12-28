@@ -280,7 +280,8 @@ fn pbasicblock(input: PBytes) -> PResult<BasicBlock> {
     )
 }
 
-pub fn pdefn(input: PBytes) -> PResult<Defn> {
+fn ppfunction_parameters(input: PBytes) -> PResult<Vec<String>> {
+    // Comma separator between parameters
     named!(comma<&[u8], ()>,
         chain!(
             opt!(space) ~ tag!(",") ~ opt!(space),
@@ -288,25 +289,30 @@ pub fn pdefn(input: PBytes) -> PResult<Defn> {
         )
     );
 
-    named!(parameters<&[u8], Vec<String> >,
-        chain!(
-            tag!("(")                                 ~ space? ~
-            args: separated_list!(comma, _identifier) ~ space? ~
-            tag!(")")                                 ,
-
-            ||{ args }
-        )
-    );
-
     chain!(input,
-        tag!("defn")           ~ space ~
-        name: alpha            ~
-        parameters: parameters ~ space? ~
-        body: pbasicblock      ,
+        tag!("(")                                 ~ space? ~
+        args: separated_list!(comma, _identifier) ~ space? ~
+        tag!(")")                                 ,
+
+        ||{ args }
+    )
+}
+
+/// Parses the `defn` statement syntax for defined functions.
+pub fn pdefn(input: PBytes) -> PResult<Defn> {
+    chain!(input,
+        tag!("defn")                      ~ space ~
+        name: alpha                       ~
+        parameters: ppfunction_parameters ~ space? ~
+        body: pbasicblock                 ,
 
         || { Defn::new(to_s(name), parameters, body) }
     )
 }
+
+/// Parses the `fn` value syntax for anonymous functions.
+// fn pfn(input: PBytes) -> PResult<Fn> {
+// }
 
 /// Parses the two patterns for returns:
 ///
@@ -442,7 +448,7 @@ mod tests {
             body
         );
 
-        let parsed_defn = pdefn(b"defn foo() {\n bar := baz\n}");
+        let parsed_defn = pdefn(b"defn foo() {\n bar := baz \n}");
 
         assert_eq!(
             parsed_defn,
