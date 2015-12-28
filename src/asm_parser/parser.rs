@@ -1,10 +1,7 @@
 #![allow(dead_code)]
 
-use nom::{
-    alpha, digit, eof, is_space, multispace, space,
-    ErrorKind, Err as NomErr, IResult, Needed
-};
-use std::str;
+use super::util::*;
+
 use asm::{
     Assignment,
     AssignmentOp,
@@ -23,17 +20,11 @@ use asm::{
     Value,
 };
 
-/// `u8` byte array that all parsing functions use for input/remaining parse subject data.
-pub type PBytes<'a> = &'a[u8];
-
-/// Alias for Nom's `IResult` that includes the `PBytes` byte array type alias for subject data.
-pub type PResult<'a, O> = IResult<PBytes<'a>, O>;
-
-/// Convert a byte array to a heap-allocated `String`.
-fn to_s(i: PBytes) -> String {
-    // String::from_utf8_lossy(i).into_owned()
-    str::from_utf8(i).unwrap().to_string()
-}
+use nom::{
+    alpha, digit, eof, is_space, multispace, space,
+    IResult, Needed
+};
+use std::str;
 
 pub fn pprogram(input: &[u8]) -> IResult<&[u8], Program> {
     let result = chain!(input,
@@ -209,25 +200,6 @@ fn ppidentifier(input: PBytes) -> PResult<String> {
     )
 }
 
-type TryFn<T> = Box<Fn(PBytes) -> PResult<T>>;
-
-/// Tries each of a given set of matchers, returning the first one that matches successfully.
-/// If all fail then it returns an `IResult::Error` at the position where it failed.
-fn try_each<'a, T>(input: PBytes<'a>, matchers: Vec<TryFn<T>>) -> PResult<'a, T> {
-    for matcher in matchers.iter() {
-        let result = matcher(input);
-
-        match result {
-            IResult::Done(_, _) => { return result},
-            _ => (),
-        }
-    }
-
-    return IResult::Error(
-        NomErr::Position(ErrorKind::Alt, input)
-    )
-}
-
 // Parse a value type
 fn ppvalue(input: PBytes) -> PResult<Value> {
     named!(match_fn, tag!("fn"));
@@ -259,26 +231,6 @@ pub fn passignment(input: &[u8]) -> IResult<&[u8], Assignment> {
             Assignment::new(lvalue, op, rvalue)
         }
     )
-}
-
-fn gobble<F: Fn(u8) -> bool>(input: &[u8], test: F) -> &[u8] {
-    for (index, item) in input.iter().enumerate() {
-        if !test(*item) {
-            return &input[index..]
-        }
-    }
-
-    input
-}
-
-// Peek to see if the next input matches the given function WITHOUT consuming the input.
-fn peek<F>(input: PBytes, f: F) -> bool
-    where F: Fn(PBytes) -> IResult<PBytes, PBytes> {
-
-    match f(input) {
-        IResult::Done(_, _) => true,
-        _ => false
-    }
 }
 
 pub fn pterminal(input: PBytes) -> PResult<()> {
