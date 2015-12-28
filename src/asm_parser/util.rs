@@ -18,7 +18,7 @@ pub fn try_each<'a, T>(input: PBytes<'a>, matchers: Vec<TryFn<T>>) -> PResult<'a
         let result = matcher(input);
 
         match result {
-            IResult::Done(_, _) => { return result},
+            IResult::Done(_, _) => { return result },
             _ => (),
         }
     }
@@ -52,5 +52,31 @@ pub fn peek<F>(input: PBytes, f: F) -> bool
     match f(input) {
         IResult::Done(_, _) => true,
         _ => false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        gobble,
+        peek,
+        PBytes,
+        PResult
+    };
+    use nom::{is_space};
+
+    #[test]
+    fn peek_does_peek_ahead() {
+        fn matcher(input: PBytes) -> PResult<PBytes> {
+            tag!(input, "ab")
+        }
+
+        assert_eq!(peek(b"abc", matcher), true);
+        assert_eq!(peek(b"cde", matcher), false);
+    }
+
+    #[test]
+    fn gobble_consumes_input() {
+        assert_eq!(gobble(b" \tab", is_space), b"ab");
     }
 }

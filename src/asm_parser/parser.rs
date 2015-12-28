@@ -132,8 +132,9 @@ pub fn pextern(input: &[u8]) -> IResult<&[u8], Extern> {
     )
 }
 
-named!(_const_constructor_pair<&[u8], (Path, Option<String>)>,
-    chain!(
+/// Parses constant constructor (path to a function and an optional argument)
+pub fn pconst_constructor(input: PBytes) -> PResult<(Path, Option<String>)> {
+    chain!(input,
         cons: ppath ~ space ~
         arg:  alt!(
                   pterminal                               => { |_| None } |
@@ -142,7 +143,7 @@ named!(_const_constructor_pair<&[u8], (Path, Option<String>)>,
 
         ||{ (cons, arg) }
     )
-);
+}
 
 /// Parses `const @NAME = CONSTRUCTOR ARGUMENT?``
 pub fn pconst(input: &[u8]) -> IResult<&[u8], Const> {
@@ -150,19 +151,19 @@ pub fn pconst(input: &[u8]) -> IResult<&[u8], Const> {
         tag!("const")               ~ space ~
         name: pconst_name           ~ space ~
         tag!("=")                   ~ space? ~
-        cp: _const_constructor_pair ~
+        cons: pconst_constructor    ~
         pterminal                   ,
 
         ||{
-            let cons = cp.0.clone();
-            let arg  = cp.1.clone();
+            let path = cons.0.clone();
+            let arg  = cons.1.clone();
 
-            Const::new(name, cons, arg)
+            Const::new(name, path, arg)
         }
     )
 }
 
-/// Parses constant constructor (string, number or null)
+/// Parses constant constructor argument (string, number or null)
 ///
 /// - string = `"[^"]*"``
 /// - number = `[0-9]+`
