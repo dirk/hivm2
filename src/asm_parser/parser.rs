@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 
 use super::util::*;
-
 use asm::{
     Assignment,
     AssignmentOp,

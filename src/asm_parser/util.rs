@@ -7,6 +7,8 @@ pub type PBytes<'a> = &'a[u8];
 /// Alias for Nom's `IResult` that includes the `PBytes` byte array type alias for subject data.
 pub type PResult<'a, O> = IResult<PBytes<'a>, O>;
 
+/// A boxed standard parser function that takes a byte array as input and returns a standard
+/// parsing result.
 pub type TryFn<T> = Box<Fn(PBytes) -> PResult<T>>;
 
 /// Tries each of a given set of matchers, returning the first one that matches successfully.
