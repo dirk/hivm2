@@ -28,6 +28,17 @@ pub fn try_each<'a, T>(input: PBytes<'a>, matchers: Vec<TryFn<T>>) -> PResult<'a
     )
 }
 
+/// Tries the given matcher function; if it succeeds then it consumes the input and returns the
+/// corresponding `IResult::Done` with `Some(output)`, for all other cases (error, incomplete) it
+/// does not consume any input but still returns `IResult::Done` with a `None` output.
+pub fn try<'a, T>(input: PBytes<'a>, matcher: TryFn<T>) -> PResult<'a, Option<T>> {
+    let result = matcher(input);
+
+    match result {
+        IResult::Done(rest, output) => { IResult::Done(rest, Some(output)) },
+        _ => { IResult::Done(input, None) },
+    }
+}
 
 /// Convert a byte array to a heap-allocated `String`.
 pub fn to_s(i: PBytes) -> String {
