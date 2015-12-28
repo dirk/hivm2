@@ -9,6 +9,7 @@ use asm::{
     Const,
     Defn,
     Extern,
+    Fn as AsmFn,
     Local,
     Mod,
     Path,
@@ -197,19 +198,24 @@ named!(pconst_null<&[u8], String>,
     map!(tag!("null"), |_| { "null".to_string() })
 );
 
-named!(_identifier<&[u8], String>,
-    alt!(
+fn ppidentifier(input: PBytes) -> PResult<String> {
+    alt!(input,
         pconst_name |
         pstatic_name |
         plocal_name
     )
-);
+}
 
 // Parse a value type
 fn ppvalue(input: PBytes) -> PResult<Value> {
-    alt!(input,
-        _identifier => { |i| Value::with_name(i) }
-    )
+    named!(match_fn, tag!("fn"));
+
+    if peek(input, match_fn) {
+        map!(input, pfn, { |f| Value::Fn(f) })
+
+    } else {
+        map!(input, ppidentifier, { |i| Value::with_name(i) })
+    }
 }
 
 /// Parses assignments in the following forms:
@@ -245,25 +251,25 @@ fn gobble<F: Fn(u8) -> bool>(input: &[u8], test: F) -> &[u8] {
     input
 }
 
+// Peek to see if the next input matches the given function WITHOUT consuming the input.
+fn peek<F>(input: PBytes, f: F) -> bool
+    where F: Fn(PBytes) -> IResult<PBytes, PBytes> {
+
+    match f(input) {
+        IResult::Done(_, _) => true,
+        _ => false
+    }
+}
+
 pub fn pterminal(input: PBytes) -> PResult<()> {
     let input = gobble(input, is_space);
 
-    // Peek to see if the next input matches the given function
-    fn has_next<F>(input: PBytes, f: F) -> bool
-        where F: Fn(PBytes) -> IResult<PBytes, PBytes> {
-
-        match f(input) {
-            IResult::Done(_, _) => true,
-            _ => false
-        }
-    }
-
     named!(right_brace, tag!("}"));
 
-    if has_next(input, eof) {
+    if peek(input, eof) {
         return IResult::Done(input, ())
     }
-    if has_next(input, right_brace) {
+    if peek(input, right_brace) {
         return IResult::Done(input, ())
     }
 
@@ -291,7 +297,7 @@ fn ppfunction_parameters(input: PBytes) -> PResult<Vec<String>> {
 
     chain!(input,
         tag!("(")                                 ~ space? ~
-        args: separated_list!(comma, _identifier) ~ space? ~
+        args: separated_list!(comma, ppidentifier) ~ space? ~
         tag!(")")                                 ,
 
         ||{ args }
@@ -306,13 +312,20 @@ pub fn pdefn(input: PBytes) -> PResult<Defn> {
         parameters: ppfunction_parameters ~ space? ~
         body: pbasicblock                 ,
 
-        || { Defn::new(to_s(name), parameters, body) }
+        ||{ Defn::new(to_s(name), parameters, body) }
     )
 }
 
 /// Parses the `fn` value syntax for anonymous functions.
-// fn pfn(input: PBytes) -> PResult<Fn> {
-// }
+fn pfn(input: PBytes) -> PResult<AsmFn> {
+    chain!(input,
+        tag!("fn")                        ~ space? ~
+        parameters: ppfunction_parameters ~ space? ~
+        body: pbasicblock                 ,
+
+        ||{ AsmFn::new(parameters, body) }
+    )
+}
 
 /// Parses the two patterns for returns:
 ///
@@ -323,7 +336,7 @@ pub fn preturn(input: &[u8]) -> IResult<&[u8], Return> {
         tag!("return") ~
         arg: alt!(
                  pterminal                                 => { |_| None } |
-                 delimited!(space, _identifier, pterminal) => { |arg| Some(arg) }
+                 delimited!(space, ppidentifier, pterminal) => { |arg| Some(arg) }
              ),
 
         ||{ Return::new(arg) }
@@ -399,7 +412,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_assignment() {
+    fn parse_assignment_with_name() {
         let parsed_assignment = passignment(b"a = b");
 
         let expected_assignment = Assignment::new(
@@ -409,6 +422,24 @@ mod tests {
         );
 
         assert_eq!(parsed_assignment, IResult::Done(EMPTY, expected_assignment))
+    }
+
+    #[test]
+    fn parse_assignment_with_fn() {
+        let parsed_assignment = passignment(b"a = fn() { b := @c }");
+
+        let expected_assignment = Assignment::new(
+            "a".to_owned(),
+            AssignmentOp::Plain,
+            Value::Fn(Fn::new(
+                Vec::new(),
+                BasicBlock::with_stmts(vec![
+                    Statement::StatementAssignment(unwrap_iresult(passignment(b"b := @c")))
+                ])
+            ))
+        );
+
+        assert_eq!(parsed_assignment, done(expected_assignment))
     }
 
     #[test]
