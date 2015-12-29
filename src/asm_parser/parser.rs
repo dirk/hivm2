@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use super::util::*;
 use asm::{
     Assignment,
@@ -212,8 +210,6 @@ fn ppidentifier(input: PBytes) -> PResult<String> {
 /// - An anonymous function (`fn(ARGS) BLOCK`)
 /// - An identifier (`local`, `@static`, or `$const`)
 pub fn pvalue(input: PBytes) -> PResult<Value> {
-    named!(match_fn, tag!("fn"));
-
     try_each(input, vec![
         Box::new(|i| map!(i, pfn, |f| Value::Fn(f))),
         Box::new(|i| map!(i, ppidentifier, |i| Value::with_name(i)))

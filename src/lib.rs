@@ -3,3 +3,4 @@ extern crate nom;
 
 pub mod asm;
 pub mod asm_parser;
+pub mod vm;
