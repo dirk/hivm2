@@ -72,11 +72,14 @@ mod tests {
         gobble,
         peek,
         try,
+        try_each,
         PBytes,
         PResult
     };
     use nom::{
         is_space,
+        Err as NomErr,
+        ErrorKind,
         IResult
     };
 
@@ -108,6 +111,43 @@ mod tests {
         assert_eq!(
             try(b"abc", Box::new(|i| tag!(i, "cd"))),
             IResult::Done("abc".as_bytes(), None)
+        )
+    }
+
+    #[test]
+    fn try_each_matches_second_if_first_is_incomplete() {
+        named!(long_matcher,
+            chain!(
+                tag!("a") ~ tag!("bc") ,
+
+                ||{ "abc".as_bytes() }
+            )
+        );
+
+        named!(short_matcher,
+            tag!("ab")
+        );
+
+        assert_eq!(
+            try_each(b"ab", vec![
+                Box::new(|i| long_matcher(i)),
+                Box::new(|i| short_matcher(i))
+            ]),
+            IResult::Done("".as_bytes(), "ab".as_bytes())
+        )
+    }
+
+    #[test]
+    fn try_each_errors_if_none_match() {
+        named!(one, tag!("ab"));
+        named!(two, tag!("bc"));
+
+        assert_eq!(
+            try_each(b"cd", vec![
+                Box::new(|i| one(i)),
+                Box::new(|i| two(i))
+            ]),
+            IResult::Error(NomErr::Position(ErrorKind::Alt, "cd".as_bytes()))
         )
     }
 }
