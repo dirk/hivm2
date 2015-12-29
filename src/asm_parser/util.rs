@@ -96,13 +96,18 @@ mod tests {
     }
 
     #[test]
-    fn try_consumes_only_if_matches() {
-        let rest: &'static [u8]    = b"c";
-        let matched: &'static [u8] = b"ab";
-
+    fn try_consumes_if_matches() {
         assert_eq!(
             try(b"abc", Box::new(|i| tag!(i, "ab"))),
-            IResult::Done(rest, Some(matched))
+            IResult::Done("c".as_bytes(), Some("ab".as_bytes()))
+        )
+    }
+
+    #[test]
+    fn try_doesnt_consume_if_doesnt_match() {
+        assert_eq!(
+            try(b"abc", Box::new(|i| tag!(i, "cd"))),
+            IResult::Done("abc".as_bytes(), None)
         )
     }
 }
