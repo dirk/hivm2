@@ -71,10 +71,14 @@ mod tests {
     use super::{
         gobble,
         peek,
+        try,
         PBytes,
         PResult
     };
-    use nom::{is_space};
+    use nom::{
+        is_space,
+        IResult
+    };
 
     #[test]
     fn peek_does_peek_ahead() {
@@ -89,5 +93,16 @@ mod tests {
     #[test]
     fn gobble_consumes_input() {
         assert_eq!(gobble(b" \tab", is_space), b"ab");
+    }
+
+    #[test]
+    fn try_consumes_only_if_matches() {
+        let rest: &'static [u8]    = b"c";
+        let matched: &'static [u8] = b"ab";
+
+        assert_eq!(
+            try(b"abc", Box::new(|i| tag!(i, "ab"))),
+            IResult::Done(rest, Some(matched))
+        )
     }
 }
