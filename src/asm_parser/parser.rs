@@ -307,8 +307,8 @@ pub fn preturn(input: &[u8]) -> IResult<&[u8], Return> {
     chain!(input,
         tag!("return") ~
         arg: alt!(
-                 pterminal                                 => { |_| None } |
-                 delimited!(space, ppidentifier, pterminal) => { |arg| Some(arg) }
+                 pterminal                             => { |_| None } |
+                 delimited!(space, ppvalue, pterminal) => { |arg| Some(arg) }
              ),
 
         ||{ Return::new(arg) }
@@ -462,7 +462,7 @@ mod tests {
     #[test]
     fn parse_return_with_argument() {
         let parsed_return   = preturn(b"return foo");
-        let expected_return = Return::new(Some("foo".to_string()));
+        let expected_return = Return::new(Some(Value::from_name_str("foo")));
 
         assert_eq!(parsed_return, IResult::Done(EMPTY, expected_return))
     }

@@ -276,12 +276,12 @@ impl Fn {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Return {
-    name: Option<Name>,
+    value: Option<Value>,
 }
 
 impl Return {
-    pub fn new(name: Option<Name>) -> Return {
-        Return { name: name }
+    pub fn new(value: Option<Value>) -> Return {
+        Return { value: value }
     }
 }
 
@@ -419,7 +419,7 @@ mod tests {
         });
 
         assert_pushes(|p: &mut Program| {
-            let r = Return::new(Some("a_local".to_string()));
+            let r = Return::new(Some(Value::from_name_str("a_local")));
             p.push_return(r);
         })
     }
