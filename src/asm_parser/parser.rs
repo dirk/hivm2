@@ -61,17 +61,23 @@ pub fn pstatement(input: PBytes) -> PResult<Statement> {
     )
 }
 
-named!(plocal_name<PBytes, String>,
-    map!(alpha, |name| { to_s(name) })
-);
+fn plocal_name(input: PBytes) -> PResult<String> {
+    map!(input, alpha, |name| { to_s(name) })
+}
 
-named!(pstatic_name<PBytes, String>,
-    map!(preceded!(tag!("$"), alpha), |name| { "$".to_string() + &to_s(name) })
-);
+fn pstatic_name(input: PBytes) -> PResult<String> {
+    map!(input,
+        preceded!(tag!("$"), alpha),
+        |name| { "$".to_string() + &to_s(name) }
+    )
+}
 
-named!(pconst_name<PBytes, String>,
-    map!(preceded!(tag!("@"), alpha), |name| { "@".to_string() + &to_s(name) })
-);
+fn pconst_name(input: PBytes) -> PResult<String> {
+    map!(input,
+        preceded!(tag!("@"), alpha),
+        |name| { "@".to_string() + &to_s(name) }
+    )
+}
 
 /// Parses a path like "a.b.c"
 pub fn ppath(input: PBytes) -> PResult<Path> {
@@ -202,8 +208,10 @@ fn ppidentifier(input: PBytes) -> PResult<String> {
     )
 }
 
-// Parse a value type
-fn ppvalue(input: PBytes) -> PResult<Value> {
+/// Parses a value type:
+/// - An anonymous function (`fn(ARGS) BLOCK`)
+/// - An identifier (`local`, `@static`, or `$const`)
+pub fn pvalue(input: PBytes) -> PResult<Value> {
     named!(match_fn, tag!("fn"));
 
     try_each(input, vec![
@@ -213,7 +221,6 @@ fn ppvalue(input: PBytes) -> PResult<Value> {
 }
 
 /// Parses assignments in the following forms:
-///
 /// - `NAME = VALUE`
 /// - `NAME := VALUE`
 ///
@@ -224,7 +231,7 @@ pub fn passignment(input: &[u8]) -> IResult<&[u8], Assignment> {
     chain!(input,
         lvalue: alt!(plocal_name | pstatic_name) ~ space ~
         raw_op: alt!(tag!(":=") | tag!("="))     ~ space ~
-        rvalue: ppvalue                          ~
+        rvalue: pvalue                          ~
         pterminal                                ,
 
         ||{
@@ -250,6 +257,7 @@ pub fn pterminal(input: PBytes) -> PResult<()> {
     map!(input, tag!("\n"), { |_| () })
 }
 
+/// Parses a block: `{ STATEMENTS }`.
 fn pbasicblock(input: PBytes) -> PResult<BasicBlock> {
     chain!(input,
         tag!("{")                 ~ multispace? ~
@@ -291,7 +299,7 @@ pub fn pdefn(input: PBytes) -> PResult<Defn> {
 }
 
 /// Parses the `fn` value syntax for anonymous functions.
-fn pfn(input: PBytes) -> PResult<AsmFn> {
+pub fn pfn(input: PBytes) -> PResult<AsmFn> {
     chain!(input,
         tag!("fn")                        ~ space? ~
         parameters: ppfunction_parameters ~ space? ~
@@ -302,12 +310,11 @@ fn pfn(input: PBytes) -> PResult<AsmFn> {
 }
 
 /// Parses the two patterns for returns:
-///
 /// - `return`
-/// - `return ARGUMENT`
+/// - `return VALUE`
 pub fn preturn(input: PBytes) -> PResult<Return> {
     fn maybe_arg(input: PBytes) -> PResult<Option<Value>> {
-        try(input, Box::new(|i| preceded!(i, space, ppvalue)))
+        try(input, Box::new(|i| preceded!(i, space, pvalue)))
     }
 
     chain!(input,
@@ -321,14 +328,17 @@ pub fn preturn(input: PBytes) -> PResult<Return> {
 
 #[cfg(test)]
 mod tests {
-    use super::{passignment, pbasicblock, pconst, pdefn, plocal, ppath, pprogram, preturn, pstatic};
+    use super::{
+        passignment, pbasicblock, pconst, pdefn, plocal, ppath, pprogram, preturn, pstatic
+    };
+    use super::super::util::{PBytes};
     use nom::{IResult};
     use asm::*;
 
     const EMPTY: &'static [u8] = b"";
 
     // Create a `IResult::Done` with no remaining input and the given output.
-    fn done<T>(output: T) -> IResult<&'static [u8], T> {
+    fn done<'a, T>(output: T) -> IResult<PBytes<'a>, T> {
         IResult::Done(EMPTY, output)
     }
 
