@@ -1,6 +1,6 @@
 [package]
 name = "hivm2"
-version = "0.0.1"
+version = "0.0.2"
 authors = ["Dirk Gadsden <dirk@esherido.com>"]
 description = "A new kind of virtual machine."
 repository = "https://github.com/dirk/hivm2"
