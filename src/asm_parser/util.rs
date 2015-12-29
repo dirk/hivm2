@@ -9,11 +9,11 @@ pub type PResult<'a, O> = IResult<PBytes<'a>, O>;
 
 /// A boxed standard parser function that takes a byte array as input and returns a standard
 /// parsing result.
-pub type TryFn<T> = Box<Fn(PBytes) -> PResult<T>>;
+pub type TryFn<'a, T> = Box<Fn(PBytes<'a>) -> PResult<'a, T>>;
 
 /// Tries each of a given set of matchers, returning the first one that matches successfully.
 /// If all fail then it returns an `IResult::Error` at the position where it failed.
-pub fn try_each<'a, T>(input: PBytes<'a>, matchers: Vec<TryFn<T>>) -> PResult<'a, T> {
+pub fn try_each<'a, T>(input: PBytes<'a>, matchers: Vec<TryFn<'a, T>>) -> PResult<'a, T> {
     for matcher in matchers.iter() {
         let result = matcher(input);
 
@@ -31,7 +31,7 @@ pub fn try_each<'a, T>(input: PBytes<'a>, matchers: Vec<TryFn<T>>) -> PResult<'a
 /// Tries the given matcher function; if it succeeds then it consumes the input and returns the
 /// corresponding `IResult::Done` with `Some(output)`, for all other cases (error, incomplete) it
 /// does not consume any input but still returns `IResult::Done` with a `None` output.
-pub fn try<'a, T>(input: PBytes<'a>, matcher: TryFn<T>) -> PResult<'a, Option<T>> {
+pub fn try<'a, T>(input: PBytes<'a>, matcher: TryFn<'a, T>) -> PResult<'a, Option<T>> {
     let result = matcher(input);
 
     match result {
