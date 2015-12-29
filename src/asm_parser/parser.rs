@@ -134,12 +134,14 @@ pub fn pextern(input: &[u8]) -> IResult<&[u8], Extern> {
 
 /// Parses constant constructor (path to a function and an optional argument)
 pub fn pconst_constructor(input: PBytes) -> PResult<(Path, Option<String>)> {
+    fn maybe_arg(input: PBytes) -> PResult<Option<String>> {
+        try(input, Box::new(|i| pconst_argument(i)))
+    }
+
     chain!(input,
-        cons: ppath ~ space ~
-        arg:  alt!(
-                  pterminal                               => { |_| None } |
-                  terminated!(pconst_argument, pterminal) => { |arg| Some(arg) }
-              ),
+        cons: ppath     ~ space ~
+        arg:  maybe_arg ~
+        pterminal       ,
 
         ||{ (cons, arg) }
     )
@@ -268,9 +270,9 @@ fn ppfunction_parameters(input: PBytes) -> PResult<Vec<String>> {
     );
 
     chain!(input,
-        tag!("(")                                 ~ space? ~
+        tag!("(")                                  ~ space? ~
         args: separated_list!(comma, ppidentifier) ~ space? ~
-        tag!(")")                                 ,
+        tag!(")")                                  ,
 
         ||{ args }
     )
@@ -303,13 +305,15 @@ fn pfn(input: PBytes) -> PResult<AsmFn> {
 ///
 /// - `return`
 /// - `return ARGUMENT`
-pub fn preturn(input: &[u8]) -> IResult<&[u8], Return> {
+pub fn preturn(input: PBytes) -> PResult<Return> {
+    fn maybe_arg(input: PBytes) -> PResult<Option<Value>> {
+        try(input, Box::new(|i| preceded!(i, space, ppvalue)))
+    }
+
     chain!(input,
         tag!("return") ~
-        arg: alt!(
-                 pterminal                             => { |_| None } |
-                 delimited!(space, ppvalue, pterminal) => { |arg| Some(arg) }
-             ),
+        arg: maybe_arg ~
+        pterminal      ,
 
         ||{ Return::new(arg) }
     )
