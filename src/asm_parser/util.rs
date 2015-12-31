@@ -2,7 +2,7 @@ use nom::{ErrorKind, Err as NomErr, IResult};
 use std::str;
 
 /// `u8` byte array that all parsing functions use for input/remaining parse subject data.
-pub type PBytes<'a> = &'a[u8];
+pub type PBytes<'a> = &'a [u8];
 
 /// Alias for Nom's `IResult` that includes the `PBytes` byte array type alias for subject data.
 pub type PResult<'a, O> = IResult<PBytes<'a>, O>;

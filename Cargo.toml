@@ -14,3 +14,4 @@ include = [
 
 [dependencies]
 nom = "~1.0.0"
+byteorder = "~0.4.2"
