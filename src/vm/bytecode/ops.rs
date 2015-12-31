@@ -46,6 +46,17 @@ trait ReadWriteTypesExt: NativeEndianReadWriteExt {
     fn read_reg(&mut self) -> u8    { self.read_hu8() }
     fn read_addr(&mut self) -> u64  { self.read_hu64() }
     fn read_local(&mut self) -> u16 { self.read_hu16() }
+
+    fn read_args(&mut self) -> Vec<u8> {
+        let num_args          = self.read_hu8();
+        let mut args: Vec<u8> = vec![];
+
+        for _ in 0..num_args {
+            args.push(self.read_reg())
+        }
+
+        args
+    }
 }
 impl<R: NativeEndianReadWriteExt> ReadWriteTypesExt for R {}
 
@@ -68,24 +79,13 @@ pub struct BCall {
     out: Option<Reg>,
 }
 
-fn read_args(input: &mut Cursor<BBytes>) -> Vec<u8> {
-    let num_args          = input.read_hu8();
-    let mut args: Vec<u8> = vec![];
-
-    for _ in 0..num_args {
-        args.push(input.read_reg())
-    }
-
-    args
-}
-
 /// Binary format: `addr:u64 num_args:u8 [arg:u8] out:u8`
 ///
 /// **Note**: There will be 0 or more `arg` items corresponding to `num_args`.
 impl BinarySerializable for BCall {
     fn from_binary(input: &mut Cursor<BBytes>) -> BCall {
         let addr = input.read_addr();
-        let args = read_args(input);
+        let args = input.read_args();
         let out  = reg_to_option(input.read_reg());
 
         BCall { addr: addr, args: args, out: out, }
@@ -103,7 +103,7 @@ pub struct BCallNative {
 impl BinarySerializable for BCallNative {
     fn from_binary(input: &mut Cursor<BBytes>) -> BCallNative {
         let id   = input.read_hu32();
-        let args = read_args(input);
+        let args = input.read_args();
         let out  = reg_to_option(input.read_hu8());
 
         BCallNative { id: id, args: args, out: out, }
@@ -139,9 +139,12 @@ pub struct BGetLocal {
     out: Reg,
 }
 
-pub struct BEntry {
-    /// Number of local variable slots
-    num_locals: u16,
+impl BinarySerializable for BGetLocal {
+    fn from_binary(input: &mut Cursor<BBytes>) -> BGetLocal {
+        let idx = input.read_local();
+        let out = input.read_reg();
+        BGetLocal { idx: idx, out: out, }
+    }
 }
 
 pub struct BGetArg {
@@ -150,9 +153,24 @@ pub struct BGetArg {
     out: Reg,
 }
 
+impl BinarySerializable for BGetArg {
+    fn from_binary(input: &mut Cursor<BBytes>) -> BGetArg {
+        let idx = input.read_hu8();
+        let out = input.read_reg();
+        BGetArg { idx: idx, out: out, }
+    }
+}
+
 /// No-op entry to a function that sets up the local slots for the function. Must always be first
 /// op in a function;
 pub struct BFnEntry {
     /// Defines the number of local slots
-    locals: u16,
+    num_locals: u16,
+}
+
+impl BinarySerializable for BFnEntry {
+    fn from_binary(input: &mut Cursor<BBytes>) -> BFnEntry {
+        let num_locals = input.read_hu16();
+        BFnEntry { num_locals: num_locals, }
+    }
 }
