@@ -22,7 +22,7 @@ fn reg_to_option(reg: Reg) -> Option<Reg> {
 }
 
 /// Adds host-native read and write methods, ie. `read_hu64` ("read host unsigned 64").
-trait HostReadWriteExt: io::Read + ReadBytesExt {
+trait NativeEndianReadWriteExt: io::Read + ReadBytesExt {
     fn read_hu8(&mut self) -> u8 {
         self.read_u8().unwrap()
     }
@@ -39,9 +39,15 @@ trait HostReadWriteExt: io::Read + ReadBytesExt {
         self.read_u64::<NativeEndian>().unwrap()
     }
 }
-
 // Add HostReadWriteExt to all readables
-impl<R: io::Read + ReadBytesExt> HostReadWriteExt for R {}
+impl<R: io::Read + ReadBytesExt> NativeEndianReadWriteExt for R {}
+
+trait ReadWriteTypesExt: NativeEndianReadWriteExt {
+    fn read_reg(&mut self) -> u8    { self.read_hu8() }
+    fn read_addr(&mut self) -> u64  { self.read_hu64() }
+    fn read_local(&mut self) -> u16 { self.read_hu16() }
+}
+impl<R: NativeEndianReadWriteExt> ReadWriteTypesExt for R {}
 
 /// Register index
 type Reg = u8;
@@ -67,7 +73,7 @@ fn read_args(input: &mut Cursor<BBytes>) -> Vec<u8> {
     let mut args: Vec<u8> = vec![];
 
     for _ in 0..num_args {
-        args.push(input.read_hu8())
+        args.push(input.read_reg())
     }
 
     args
@@ -78,9 +84,9 @@ fn read_args(input: &mut Cursor<BBytes>) -> Vec<u8> {
 /// **Note**: There will be 0 or more `arg` items corresponding to `num_args`.
 impl BinarySerializable for BCall {
     fn from_binary(input: &mut Cursor<BBytes>) -> BCall {
-        let addr = input.read_hu64();
+        let addr = input.read_addr();
         let args = read_args(input);
-        let out  = reg_to_option(input.read_hu8());
+        let out  = reg_to_option(input.read_reg());
 
         BCall { addr: addr, args: args, out: out, }
     }
@@ -110,7 +116,7 @@ pub struct BReturn {
 
 impl BinarySerializable for BReturn {
     fn from_binary(input: &mut Cursor<BBytes>) -> BReturn {
-        let arg = reg_to_option(input.read_hu8());
+        let arg = reg_to_option(input.read_reg());
         BReturn { arg: arg, }
     }
 }
@@ -122,8 +128,8 @@ pub struct BSetLocal {
 
 impl BinarySerializable for BSetLocal {
     fn from_binary(input: &mut Cursor<BBytes>) -> BSetLocal {
-        let idx = input.read_hu16();
-        let arg = input.read_hu8();
+        let idx = input.read_local();
+        let arg = input.read_reg();
         BSetLocal { idx: idx, arg: arg, }
     }
 }
