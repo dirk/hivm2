@@ -63,18 +63,29 @@ pub struct BCall {
     out: Option<Reg>,
 }
 
+macro_rules! serialize {
+    (
+        $name:ident,
+        from($from_arg:ident) $from_block:block
+    ) => {
+        impl BinarySerializable for $name {
+            fn from_binary($from_arg: &mut Cursor<BBytes>) -> $name $from_block
+        }
+    };
+}
+
 /// Binary format: `addr:u64 num_args:u8 [arg:u8] out:u8`
 ///
 /// **Note**: There will be 0 or more `arg` items corresponding to `num_args`.
-impl BinarySerializable for BCall {
-    fn from_binary(input: &mut Cursor<BBytes>) -> BCall {
+serialize!(BCall,
+    from(input) {
         let addr = input.read_addr();
         let args = input.read_args();
         let out  = reg_to_option(input.read_reg());
 
         BCall { addr: addr, args: args, out: out, }
     }
-}
+);
 
 /// Call a native function.
 pub struct BCallNative {
