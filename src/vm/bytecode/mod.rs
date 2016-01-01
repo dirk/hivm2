@@ -9,3 +9,5 @@ pub mod ops;
 
 /// The various types of data in the bytecode (register indexes, local variable indexes, etc.).
 pub mod types;
+
+pub use self::ops::{BBytes};

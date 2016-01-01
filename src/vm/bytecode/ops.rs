@@ -3,6 +3,7 @@
 use super::types::*;
 use super::util::*;
 
+use byteorder::{NativeEndian, WriteBytesExt};
 use std::io::Cursor;
 
 pub type BBytes<'a> = &'a [u8];
@@ -12,8 +13,7 @@ pub type BBytes<'a> = &'a [u8];
 /// well-known op structures.
 pub trait BinarySerializable {
     fn from_binary(&mut Cursor<BBytes>) -> Self;
-
-    // fn write_binary(&self, &mut [u8]);
+    fn to_binary(&self) -> Vec<u8>;
 }
 
 /// Call a function at a specific address in the virtual machine.
@@ -25,15 +25,23 @@ pub struct BCall {
     /// Output register for the return of the call (255 for null)
     out: Option<Reg>,
 }
-serialize!(BCall,
-    // addr:u64 num_args:u8 [arg:u8]* out:u8
-    from(input) {
+
+// addr:u64 num_args:u8 [arg:u8]* out:u8
+impl BinarySerializable for BCall {
+    fn from_binary(input: &mut Cursor<BBytes>) -> BCall {
         let addr = input.read_addr();
         let args = input.read_args();
         let out  = reg_to_option(input.read_reg());
         BCall { addr: addr, args: args, out: out, }
     }
-);
+    fn to_binary(&self) -> Vec<u8> {
+        let mut bytes = vec![];
+        bytes.write_addr(self.addr);
+        bytes.write_args(self.args.clone());
+        bytes.write_reg(option_to_reg(self.out));
+        bytes
+    }
+}
 
 /// Call a native function.
 pub struct BCallNative {
@@ -51,6 +59,13 @@ impl BinarySerializable for BCallNative {
 
         BCallNative { id: id, args: args, out: out, }
     }
+    fn to_binary(&self) -> Vec<u8> {
+        let mut bytes = vec![];
+        bytes.write_u32::<NativeEndian>(self.id).unwrap();
+        bytes.write_args(self.args.clone());
+        bytes.write_reg(option_to_reg(self.out));
+        bytes
+    }
 }
 
 /// Return from a function.
@@ -62,6 +77,9 @@ impl BinarySerializable for BReturn {
     fn from_binary(input: &mut Cursor<BBytes>) -> BReturn {
         let arg = reg_to_option(input.read_reg());
         BReturn { arg: arg, }
+    }
+    fn to_binary(&self) -> Vec<u8> {
+        vec![option_to_reg(self.arg)]
     }
 }
 
@@ -77,6 +95,12 @@ impl BinarySerializable for BSetLocal {
         let arg = input.read_reg();
         BSetLocal { idx: idx, arg: arg, }
     }
+    fn to_binary(&self) -> Vec<u8> {
+        let mut bytes = vec![];
+        bytes.write_local(self.idx);
+        bytes.write_reg(self.arg);
+        bytes
+    }
 }
 
 /// Get the value of a local variable.
@@ -90,6 +114,12 @@ impl BinarySerializable for BGetLocal {
         let idx = input.read_local();
         let out = input.read_reg();
         BGetLocal { idx: idx, out: out, }
+    }
+    fn to_binary(&self) -> Vec<u8> {
+        let mut bytes = vec![];
+        bytes.write_local(self.idx);
+        bytes.write_reg(self.out);
+        bytes
     }
 }
 
@@ -106,18 +136,29 @@ impl BinarySerializable for BGetArg {
         let out = input.read_reg();
         BGetArg { idx: idx, out: out, }
     }
+    fn to_binary(&self) -> Vec<u8> {
+        let mut bytes = vec![];
+        bytes.write_u8(self.idx).unwrap();
+        bytes.write_reg(self.out);
+        bytes
+    }
 }
 
 /// No-op entry to a function that sets up the local slots for the function. Must always be first
 /// op in a function;
 pub struct BFnEntry {
     /// Defines the number of local slots
-    num_locals: u16,
+    pub num_locals: u16,
 }
 
 impl BinarySerializable for BFnEntry {
     fn from_binary(input: &mut Cursor<BBytes>) -> BFnEntry {
         let num_locals = input.read_hu16();
         BFnEntry { num_locals: num_locals, }
+    }
+    fn to_binary(&self) -> Vec<u8> {
+        let mut bytes = vec![];
+        bytes.write_u16::<NativeEndian>(self.num_locals).unwrap();
+        bytes
     }
 }
