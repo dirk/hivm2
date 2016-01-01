@@ -37,7 +37,6 @@ pub trait ReadWriteTypesExt: NativeEndianReadWriteExt {
 }
 impl<R: NativeEndianReadWriteExt> ReadWriteTypesExt for R {}
 
-#[macro_export]
 macro_rules! serialize {
     (
         $name:ident,

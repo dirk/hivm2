@@ -5,8 +5,11 @@ use super::util::*;
 
 use std::io::Cursor;
 
-type BBytes<'a> = &'a [u8];
+pub type BBytes<'a> = &'a [u8];
 
+/// Defines interface for reading and writing a ops (instructions) to/from bytecode. All ops in
+/// this module must implement this trait so that the VM can decode its instruction sequence
+/// well-known op structures.
 pub trait BinarySerializable {
     fn from_binary(&mut Cursor<BBytes>) -> Self;
 
@@ -50,6 +53,7 @@ impl BinarySerializable for BCallNative {
     }
 }
 
+/// Return from a function.
 pub struct BReturn {
     arg: Option<Reg>,
 }
@@ -61,6 +65,7 @@ impl BinarySerializable for BReturn {
     }
 }
 
+/// Set the value of a local variable to that of the given argument.
 pub struct BSetLocal {
     idx: Local,
     arg: Reg,
@@ -74,6 +79,7 @@ impl BinarySerializable for BSetLocal {
     }
 }
 
+/// Get the value of a local variable.
 pub struct BGetLocal {
     idx: Local,
     out: Reg,
@@ -87,6 +93,7 @@ impl BinarySerializable for BGetLocal {
     }
 }
 
+/// Get an argument from the stack frame of the current function.
 pub struct BGetArg {
     /// Index of the argument, pass 255 to get the total number of arguments passed
     idx: u8,
