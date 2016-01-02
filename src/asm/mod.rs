@@ -43,7 +43,7 @@ impl Program {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct BasicBlock {
-    stmts: Vec<Statement>
+    pub stmts: Vec<Statement>
 }
 
 impl BasicBlock {
@@ -201,7 +201,7 @@ impl Static {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Local {
-    name: Name,
+    pub name: Name,
 }
 
 impl Local {
@@ -228,9 +228,9 @@ impl AssignmentOp {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Assignment {
-    lvalue: Name,
-    operator: AssignmentOp,
-    rvalue: Value,
+    pub lvalue: Name,
+    pub operator: AssignmentOp,
+    pub rvalue: Value,
 }
 
 impl Assignment {
@@ -264,8 +264,8 @@ impl Defn {
 /// Represents an anonymous function value.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Fn {
-    parameters: Vec<Name>,
-    body: BasicBlock,
+    pub parameters: Vec<Name>,
+    pub body: BasicBlock,
 }
 
 impl Fn {

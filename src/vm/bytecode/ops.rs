@@ -4,7 +4,7 @@ use super::types::*;
 use super::util::*;
 
 use byteorder::{NativeEndian, WriteBytesExt};
-use std::io::Cursor;
+use std::io::{Cursor, Write};
 
 pub type BBytes<'a> = &'a [u8];
 
@@ -14,6 +14,36 @@ pub type BBytes<'a> = &'a [u8];
 pub trait BinarySerializable {
     fn from_binary(&mut Cursor<BBytes>) -> Self;
     fn to_binary(&self) -> Vec<u8>;
+}
+
+pub trait IntoOpConvertable {
+    fn into_op(self) -> BOp;
+}
+
+pub enum BOp {
+    FnEntry(BFnEntry),
+}
+impl BOp {
+    pub fn to_binary(self) -> Vec<u8> {
+        let mut bytes = vec![self.opcode()];
+
+        match self {
+            BOp::FnEntry(e) => bytes.write(&e.to_binary()).unwrap(),
+        };
+
+        bytes
+    }
+
+    /// Take a vector of ops and convert them to a binary op sequence.
+    pub fn compile_ops(ops: Vec<BOp>) -> Vec<u8> {
+        ops.into_iter().flat_map(|op| op.to_binary()).collect()
+    }
+
+    fn opcode(&self) -> u8 {
+        match self {
+            &BOp::FnEntry(_) => 0
+        }
+    }
 }
 
 /// Call a function at a specific address in the virtual machine.
@@ -150,7 +180,6 @@ pub struct BFnEntry {
     /// Defines the number of local slots
     pub num_locals: u16,
 }
-
 impl BinarySerializable for BFnEntry {
     fn from_binary(input: &mut Cursor<BBytes>) -> BFnEntry {
         let num_locals = input.read_hu16();
@@ -160,5 +189,10 @@ impl BinarySerializable for BFnEntry {
         let mut bytes = vec![];
         bytes.write_u16::<NativeEndian>(self.num_locals).unwrap();
         bytes
+    }
+}
+impl IntoOpConvertable for BFnEntry {
+    fn into_op(self) -> BOp {
+        BOp::FnEntry(self)
     }
 }
