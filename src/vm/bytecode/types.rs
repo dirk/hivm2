@@ -1,6 +1,3 @@
-/// Register index
-pub type Reg = u8;
-
 /// Address of a function
 pub type Addr = u64;
 
