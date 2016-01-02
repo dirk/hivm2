@@ -287,8 +287,8 @@ impl Return {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Call {
-    name: Name,
-    arguments: Vec<Name>,
+    pub name: Name,
+    pub arguments: Vec<Name>,
 }
 
 impl Call {

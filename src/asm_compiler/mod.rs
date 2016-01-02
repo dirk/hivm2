@@ -72,7 +72,9 @@ impl Locals {
 }
 
 pub enum RelocationTarget {
-    Function(Rc<Function>),
+    InternalFunctionAddress(Rc<Function>),
+    /// Absolute string version of the path to the external function
+    ExternalFunctionPath(String),
 }
 
 pub struct Relocation {
@@ -109,7 +111,14 @@ impl Module {
     fn add_function_relocation(&mut self, site: RefCell<BOp>, target: Rc<Function>) {
         self.relocations.push(Relocation {
             site: site,
-            target: RelocationTarget::Function(target),
+            target: RelocationTarget::InternalFunctionAddress(target),
+        })
+    }
+
+    fn add_call_relocation(&mut self, site: RefCell<BOp>, target: String) {
+        self.relocations.push(Relocation {
+            site: site,
+            target: RelocationTarget::ExternalFunctionPath(target),
         })
     }
 }
@@ -174,19 +183,42 @@ impl Compile for asm::Statement {
     }
 }
 
-fn get_local(name: asm::Name, lc: LocalContextRef, _: &mut Module) -> OpVec {
-    let idx = lc.unwrap().locals.find(name).unwrap();
+impl asm::Value {
+    fn compile_name_to_value(&self, name: asm::Name, lc: LocalContextRef, _: &mut Module) -> OpVec {
+        let idx = lc.unwrap().locals.find(name).unwrap();
 
-    vec![Op::BOp(BGetLocal { idx: idx, }.into_op())]
+        vec![Op::BOp(BGetLocal { idx: idx, }.into_op())]
+    }
 }
 
 impl CompileToValue for asm::Value {
     fn compile_to_value(&self, lc: LocalContextRef, m: &mut Module) -> OpVec {
         match *self {
-            asm::Value::Name(ref n) => get_local(n.clone(), lc, m),
+            asm::Value::Name(ref n) => self.compile_name_to_value(n.clone(), lc, m),
             asm::Value::Fn(ref f)   => f.compile_to_value(lc, m),
+            asm::Value::Call(ref c) => c.compile_to_value(lc, m),
             _                       => panic!("#compile_to_value not implemented for {:?}", self),
         }
+    }
+}
+
+impl CompileToValue for asm::Call {
+    fn compile_to_value(&self, lc: LocalContextRef, m: &mut Module) -> OpVec {
+        let mut ops = OpVec::new();
+        let ref args = self.arguments;
+
+        for name in args {
+            let idx = lc.unwrap().locals.find(name.clone()).unwrap();
+
+            ops.push_op(BGetLocal { idx: idx, }.into_op());
+        }
+
+        let num_args = self.arguments.len() as u8;
+        let op = RefCell::new(BCall { addr: 0, num_args: num_args, }.into_op());
+        m.add_call_relocation(op.clone(), self.name.clone());
+
+        ops.push(Op::BOpRef(op));
+        ops
     }
 }
 

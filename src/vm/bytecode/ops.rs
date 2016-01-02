@@ -24,6 +24,7 @@ pub enum BOp {
     FnEntry(BFnEntry),
     GetLocal(BGetLocal),
     SetLocal(BSetLocal),
+    Call(BCall),
     PushAddress(BPushAddress),
 }
 impl BOp {
@@ -34,6 +35,7 @@ impl BOp {
             BOp::FnEntry(e)     => bytes.write(&e.to_binary()).unwrap(),
             BOp::GetLocal(g)    => bytes.write(&g.to_binary()).unwrap(),
             BOp::SetLocal(s)    => bytes.write(&s.to_binary()).unwrap(),
+            BOp::Call(c)        => bytes.write(&c.to_binary()).unwrap(),
             BOp::PushAddress(a) => bytes.write(&a.to_binary()).unwrap(),
         };
 
@@ -50,19 +52,20 @@ impl BOp {
             &BOp::FnEntry(_)     => 0,
             &BOp::GetLocal(_)    => 1,
             &BOp::SetLocal(_)    => 2,
-            &BOp::PushAddress(_) => 3,
+            &BOp::Call(_)        => 3,
+            &BOp::PushAddress(_) => 4,
         }
     }
 }
 
 /// Call a function at a specific address in the virtual machine.
+#[derive(Clone)]
 pub struct BCall {
     /// Address of the function to be called
-    addr: Addr,
+    pub addr: Addr,
     /// Number of arguments that have been pushed to the stack.
-    num_args: u8,
+    pub num_args: u8,
 }
-
 // addr:u64 num_args:u8 [arg:u8]* out:u8
 impl BinarySerializable for BCall {
     fn from_binary(input: &mut Cursor<BBytes>) -> BCall {
@@ -75,6 +78,11 @@ impl BinarySerializable for BCall {
         bytes.write_addr(self.addr);
         bytes.write_hu8(self.num_args);
         bytes
+    }
+}
+impl IntoOpConvertable for BCall {
+    fn into_op(self) -> BOp {
+        BOp::Call(self)
     }
 }
 
