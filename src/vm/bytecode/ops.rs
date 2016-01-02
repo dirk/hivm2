@@ -19,17 +19,22 @@ pub trait IntoOpConvertable {
     fn into_op(self) -> BOp;
 }
 
+#[derive(Clone)]
 pub enum BOp {
     FnEntry(BFnEntry),
+    GetLocal(BGetLocal),
     SetLocal(BSetLocal),
+    PushAddress(BPushAddress),
 }
 impl BOp {
     pub fn to_binary(self) -> Vec<u8> {
         let mut bytes = vec![self.opcode()];
 
         match self {
-            BOp::FnEntry(e)  => bytes.write(&e.to_binary()).unwrap(),
-            BOp::SetLocal(s) => bytes.write(&s.to_binary()).unwrap(),
+            BOp::FnEntry(e)     => bytes.write(&e.to_binary()).unwrap(),
+            BOp::GetLocal(g)    => bytes.write(&g.to_binary()).unwrap(),
+            BOp::SetLocal(s)    => bytes.write(&s.to_binary()).unwrap(),
+            BOp::PushAddress(a) => bytes.write(&a.to_binary()).unwrap(),
         };
 
         bytes
@@ -42,8 +47,10 @@ impl BOp {
 
     fn opcode(&self) -> u8 {
         match self {
-            &BOp::FnEntry(_) => 0,
-            &BOp::SetLocal(_) => 1,
+            &BOp::FnEntry(_)     => 0,
+            &BOp::GetLocal(_)    => 1,
+            &BOp::SetLocal(_)    => 2,
+            &BOp::PushAddress(_) => 3,
         }
     }
 }
@@ -105,6 +112,7 @@ impl BinarySerializable for BCallNative {
 // }
 
 /// Set the value of a local variable to that of the given argument.
+#[derive(Clone)]
 pub struct BSetLocal {
     pub idx: Local,
 }
@@ -126,10 +134,10 @@ impl IntoOpConvertable for BSetLocal {
 }
 
 /// Get the value of a local variable.
+#[derive(Clone)]
 pub struct BGetLocal {
-    idx: Local,
+    pub idx: Local,
 }
-
 impl BinarySerializable for BGetLocal {
     fn from_binary(input: &mut Cursor<BBytes>) -> BGetLocal {
         let idx = input.read_local();
@@ -141,13 +149,17 @@ impl BinarySerializable for BGetLocal {
         bytes
     }
 }
+impl IntoOpConvertable for BGetLocal {
+    fn into_op(self) -> BOp {
+        BOp::GetLocal(self)
+    }
+}
 
 /// Get an argument from the stack frame of the current function.
 pub struct BGetArg {
     /// Index of the argument, pass 255 to get the total number of arguments passed
     idx: u8,
 }
-
 impl BinarySerializable for BGetArg {
     fn from_binary(input: &mut Cursor<BBytes>) -> BGetArg {
         let idx = input.read_hu8();
@@ -161,7 +173,8 @@ impl BinarySerializable for BGetArg {
 }
 
 /// No-op entry to a function that sets up the local slots for the function. Must always be first
-/// op in a function;
+/// op in a function.
+#[derive(Clone)]
 pub struct BFnEntry {
     /// Defines the number of local slots
     pub num_locals: u16,
@@ -180,5 +193,26 @@ impl BinarySerializable for BFnEntry {
 impl IntoOpConvertable for BFnEntry {
     fn into_op(self) -> BOp {
         BOp::FnEntry(self)
+    }
+}
+
+#[derive(Clone)]
+pub struct BPushAddress {
+    pub addr: Addr,
+}
+impl BinarySerializable for BPushAddress {
+    fn from_binary(input: &mut Cursor<BBytes>) -> BPushAddress {
+        let addr = input.read_addr();
+        BPushAddress { addr: addr, }
+    }
+    fn to_binary(&self) -> Vec<u8> {
+        let mut bytes = vec![];
+        bytes.write_addr(self.addr);
+        bytes
+    }
+}
+impl IntoOpConvertable for BPushAddress {
+    fn into_op(self) -> BOp {
+        BOp::PushAddress(self)
     }
 }

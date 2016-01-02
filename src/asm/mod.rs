@@ -246,9 +246,9 @@ impl Assignment {
 /// Represents a named function.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Defn {
-    name: Name,
-    parameters: Vec<Name>,
-    body: BasicBlock,
+    pub name: Name,
+    pub parameters: Vec<Name>,
+    pub body: BasicBlock,
 }
 
 impl Defn {
