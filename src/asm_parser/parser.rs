@@ -9,8 +9,8 @@ use asm::{
     Fn as AsmFn,
     Local,
     Mod,
+    Module,
     Path,
-    Program,
     Return,
     Static,
     Statement,
@@ -23,12 +23,12 @@ use nom::{
 };
 use std::str;
 
-pub fn pprogram(input: &[u8]) -> IResult<&[u8], Program> {
+pub fn pmodule(input: &[u8]) -> IResult<&[u8], Module> {
     let result = chain!(input,
         stmts: many0!(pstatement) ~
         pterminal?                ,
 
-        ||{ Program::with_stmts(stmts) }
+        ||{ Module::with_stmts(stmts) }
     );
 
     match result {
@@ -325,7 +325,7 @@ pub fn preturn(input: PBytes) -> PResult<Return> {
 #[cfg(test)]
 mod tests {
     use super::{
-        passignment, pbasicblock, pconst, pdefn, plocal, ppath, pprogram, preturn, pstatic
+        passignment, pbasicblock, pconst, pdefn, plocal, ppath, pmodule, preturn, pstatic
     };
     use super::super::util::{PBytes};
     use nom::{IResult};
@@ -486,32 +486,32 @@ mod tests {
     }
 
     #[test]
-    fn parse_trivial_programs() {
-        // Totally empty program
+    fn parse_trivial_modules() {
+        // Totally empty module
         assert_eq!(
-            pprogram(b""),
-            IResult::Done(EMPTY, Program::new())
+            pmodule(b""),
+            IResult::Done(EMPTY, Module::new())
         );
 
         let l = Local::new("foo".to_string());
-        let p = Program::with_stmts(vec![Statement::StatementLocal(l)]);
+        let m = Module::with_stmts(vec![Statement::StatementLocal(l)]);
 
         // Without a trailing newline before EOF
         assert_eq!(
-            pprogram(b"local foo"),
-            IResult::Done(EMPTY, p.clone())
+            pmodule(b"local foo"),
+            done(m.clone())
         );
 
         // With a trailing newline before EOF
         assert_eq!(
-            pprogram(b"local foo\n"),
-            IResult::Done(EMPTY, p.clone())
+            pmodule(b"local foo\n"),
+            done(m)
         )
     }
 
     #[test]
-    fn parse_basic_program() {
-        let mut expected_program = Program::new();
+    fn parse_basic_module() {
+        let mut expected_module = Module::new();
 
         let m = Mod::new(Path::with_name("foo".to_string()));
         let s = Static::new("$bar".to_string());
@@ -521,21 +521,21 @@ mod tests {
             Value::from_name_str("$bar"),
         );
 
-        expected_program.push_mod(m);
-        expected_program.push_static(s);
-        expected_program.push_assignment(a);
+        expected_module.push_mod(m);
+        expected_module.push_static(s);
+        expected_module.push_assignment(a);
 
         assert_eq!(
-            pprogram(b"mod foo\nstatic $bar\nbaz := $bar"),
-            IResult::Done(EMPTY, expected_program)
+            pmodule(b"mod foo\nstatic $bar\nbaz := $bar"),
+            done(expected_module)
         )
     }
 
     #[test]
     fn tolerates_whitespace_before_statements() {
         let m = Mod::new(Path::with_name("foo".to_string()));
-        let p = Program::with_stmts(vec![Statement::StatementMod(m)]);
+        let m = Module::with_stmts(vec![Statement::StatementMod(m)]);
 
-        assert_eq!(pprogram(b" \tmod foo"), done(p))
+        assert_eq!(pmodule(b" \tmod foo"), done(m))
     }
 }

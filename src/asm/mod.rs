@@ -1,19 +1,19 @@
 #![allow(dead_code)]
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Program {
+pub struct Module {
     stmts: Vec<Statement>
 }
 
-impl Program {
-    pub fn new() -> Program {
-        Program {
+impl Module {
+    pub fn new() -> Module {
+        Module {
             stmts: Vec::new(),
         }
     }
 
-    pub fn with_stmts(stmts: Vec<Statement>) -> Program {
-        Program { stmts: stmts }
+    pub fn with_stmts(stmts: Vec<Statement>) -> Module {
+        Module { stmts: stmts }
     }
 
     pub fn push_mod(&mut self, m: Mod) {
@@ -342,9 +342,9 @@ mod tests {
     use std::ops::Fn as StdFn;
 
     fn assert_pushes<F>(block: F) where
-        F: StdFn(&mut Program) {
+        F: StdFn(&mut Module) {
 
-        let mut p = Program::new();
+        let mut p = Module::new();
 
         block(&mut p);
         assert_eq!(p.stmts.len(), 1)
@@ -373,14 +373,14 @@ mod tests {
     }
 
     #[test]
-    fn create_program() {
-        let p = Program::new();
+    fn create_module() {
+        let p = Module::new();
         assert_eq!(p.stmts.len(), 0)
     }
 
     #[test]
     fn push_mod() {
-        assert_pushes(|p: &mut Program| {
+        assert_pushes(|p: &mut Module| {
             let m = Mod::new(Path::from_str("test").unwrap());
             p.push_mod(m);
         })
@@ -388,7 +388,7 @@ mod tests {
 
     #[test]
     fn push_extern() {
-        assert_pushes(|p: &mut Program| {
+        assert_pushes(|p: &mut Module| {
             let e = Extern::new(Path::from_str("an_extern").unwrap());
             p.push_extern(e);
         })
@@ -396,7 +396,7 @@ mod tests {
 
     #[test]
     fn push_static() {
-        assert_pushes(|p: &mut Program| {
+        assert_pushes(|p: &mut Module| {
             let s = Static::new("a_static".to_string());
             p.push_static(s);
         })
@@ -404,7 +404,7 @@ mod tests {
 
     #[test]
     fn push_defn() {
-        assert_pushes(|p: &mut Program| {
+        assert_pushes(|p: &mut Module| {
             let bb = BasicBlock::new();
             let d = Defn::new("a_defn".to_string(), vec![], bb);
             p.push_defn(d);
@@ -413,12 +413,12 @@ mod tests {
 
     #[test]
     fn push_return() {
-        assert_pushes(|p: &mut Program| {
+        assert_pushes(|p: &mut Module| {
             let r = Return::new(None);
             p.push_return(r);
         });
 
-        assert_pushes(|p: &mut Program| {
+        assert_pushes(|p: &mut Module| {
             let r = Return::new(Some(Value::from_name_str("a_local")));
             p.push_return(r);
         })
