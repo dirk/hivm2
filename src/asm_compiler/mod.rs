@@ -25,27 +25,10 @@ enum Op {
     BOpRc(Rc<BOp>),
 }
 
-#[derive(Clone)]
-struct Locals {
-    locals: Vec<String>,
+/// Internal storage for all the locals in a LocalContext.
+pub struct Locals {
+    pub locals: Vec<String>,
 }
-
-#[derive(Clone)]
-struct LocalContext {
-    locals: Locals,
-}
-type LocalContextRef<'a> = Option<&'a LocalContext>;
-
-trait Compile {
-    fn compile(&self, LocalContextRef, &mut Module) -> OpVec;
-}
-
-trait CompileToValue {
-    /// Generate a series of ops guaranteeing the introduction of 1 value at the top of the
-    /// stack (to be consumed by subsequent op).
-    fn compile_to_value(&self, LocalContextRef, &mut Module) -> OpVec;
-}
-
 impl Locals {
     fn new() -> Locals {
         Locals { locals: vec![], }
@@ -71,6 +54,23 @@ impl Locals {
     }
 }
 
+/// Set of locals variables/slots and other values related to functions. Every function has its
+/// own `LocalContext`.
+pub struct LocalContext {
+    pub locals: Locals,
+}
+pub type LocalContextRef<'a> = Option<&'a LocalContext>;
+
+pub trait Compile {
+    fn compile(&self, LocalContextRef, &mut Module) -> OpVec;
+}
+
+pub trait CompileToValue {
+    /// Generate a series of ops guaranteeing the introduction of 1 value at the top of the
+    /// stack (to be consumed by subsequent op).
+    fn compile_to_value(&self, LocalContextRef, &mut Module) -> OpVec;
+}
+
 pub enum RelocationTarget {
     /// Internal address for a jump
     InternalBranchAddress(Rc<BOp>),
@@ -80,14 +80,20 @@ pub enum RelocationTarget {
     ExternalFunctionPath(String),
 }
 
+/// Links sites in the code that need to have their addresses updated (relocated) with a
+/// locator for where that address will eventually be.
+///
+/// At module load time the relocations of that module are scanned and the sites in the code
+/// updated to point at the correct final address.
 pub struct Relocation {
     /// Site that must have its address relocated
     pub site: RefCell<BOp>,
-    /// Point that this call site should eventually point to
+    /// Where this site should eventually point to
     pub target: RelocationTarget,
 }
 
 pub struct Module {
+    /// All the relocations in this module
     pub relocations: Vec<Relocation>,
     /// All the functions in this module
     pub functions: Vec<Rc<Function>>,
@@ -257,6 +263,7 @@ impl Compile for asm::Assignment {
     }
 }
 
+/// Shared function used by `asm::Fn` and `asm::Defn` to compile their `BasicBlock` bodies.
 fn compile_function_body(body: &asm::BasicBlock, m: &mut Module) -> OpVec {
     let locals = body.collect_locals();
     let entry  = BFnEntry { num_locals: locals.len() as u16, };
@@ -265,7 +272,7 @@ fn compile_function_body(body: &asm::BasicBlock, m: &mut Module) -> OpVec {
     ops.push_op(entry.into_op());
 
     let lc = LocalContext { locals: locals, };
-    ops.extend(body.compile(Some(&lc.clone()), m));
+    ops.extend(body.compile(Some(&lc), m));
 
     ops
 }
