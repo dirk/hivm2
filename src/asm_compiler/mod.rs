@@ -34,7 +34,6 @@ struct Locals {
 struct LocalContext {
     locals: Locals,
 }
-
 type LocalContextRef<'a> = Option<&'a LocalContext>;
 
 trait Compile {
@@ -84,7 +83,7 @@ pub enum RelocationTarget {
 pub struct Relocation {
     /// Site that must have its address relocated
     pub site: RefCell<BOp>,
-    /// Point that this call site is referring to
+    /// Point that this call site should eventually point to
     pub target: RelocationTarget,
 }
 
@@ -180,12 +179,12 @@ impl Compile for asm::Statement {
             StatementLocal(_)           => vec![], // No-op since we'll have already collected locals
             StatementAssignment(ref a)  => a.compile(lc, m),
             StatementDefn(ref d)        => d.compile(lc, m),
-            // StatementReturn(Return),
-            // StatementCall(Call),
-            // StatementTest(Test),
+            StatementCall(ref c)        => c.compile(lc, m),
+            StatementReturn(ref r)      => r.compile(lc, m),
+            StatementTest(ref t)        => t.compile(lc, m),
             StatementIf(ref i)          => i.compile(lc, m),
-            // StatementThen(Then),
-            // StatementElse(Else),
+            StatementThen(_)            => vec![], // Both `then` and `else` are handled by `if`
+            StatementElse(_)            => vec![],
             // StatementWhile(While),
             // StatementDo(Do),
             // StatementBreak
@@ -213,6 +212,13 @@ impl CompileToValue for asm::Value {
     }
 }
 
+impl Compile for asm::Call {
+    fn compile(&self, lc: LocalContextRef, m: &mut Module) -> OpVec {
+        let mut ops = self.compile_to_value(lc, m);
+        ops.push_op(BOp::Pop); // Pop the value since it won't be used
+        ops
+    }
+}
 impl CompileToValue for asm::Call {
     fn compile_to_value(&self, lc: LocalContextRef, m: &mut Module) -> OpVec {
         let mut ops = OpVec::new();
@@ -230,6 +236,12 @@ impl CompileToValue for asm::Call {
 
         ops.push(Op::BOpRef(op));
         ops
+    }
+}
+
+impl Compile for asm::Return {
+    fn compile(&self, _: LocalContextRef, _: &mut Module) -> OpVec {
+        vec![Op::BOp(BOp::Return)]
     }
 }
 
@@ -322,5 +334,16 @@ impl Compile for asm::If {
 impl Compile for asm::Then {
     fn compile(&self, lc: LocalContextRef, m: &mut Module) -> OpVec {
         self.body.compile(lc, m)
+    }
+}
+
+/// **Note**: Test pushes its value onto the stack to be consumed by its condition
+/// parent (if/while) node.
+impl Compile for asm::Test {
+    fn compile(&self, lc: LocalContextRef, _: &mut Module) -> OpVec {
+        let name = self.name.clone();
+        let idx = lc.unwrap().locals.find(name).unwrap();
+
+        vec![Op::BOp(BGetLocal { idx: idx, }.into_op())]
     }
 }

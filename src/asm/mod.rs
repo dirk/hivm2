@@ -302,7 +302,7 @@ impl Call {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Test {
-    name: Name,
+    pub name: Name,
 }
 
 #[derive(Clone, Debug, PartialEq)]

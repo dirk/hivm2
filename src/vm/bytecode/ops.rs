@@ -25,9 +25,12 @@ pub enum BOp {
     GetLocal(BGetLocal),
     SetLocal(BSetLocal),
     Call(BCall),
+    Invoke(BInvoke),
     PushAddress(BPushAddress),
     BranchIf(BBranchIf),
     BranchIfNot(BBranchIfNot),
+    Return,
+    Pop,
     Noop,
 }
 impl BOp {
@@ -39,9 +42,12 @@ impl BOp {
             BOp::GetLocal(g)    => bytes.write(&g.to_binary()).unwrap(),
             BOp::SetLocal(s)    => bytes.write(&s.to_binary()).unwrap(),
             BOp::Call(c)        => bytes.write(&c.to_binary()).unwrap(),
+            BOp::Invoke(i)      => bytes.write(&i.to_binary()).unwrap(),
             BOp::PushAddress(a) => bytes.write(&a.to_binary()).unwrap(),
             BOp::BranchIf(b)    => bytes.write(&b.to_binary()).unwrap(),
             BOp::BranchIfNot(b) => bytes.write(&b.to_binary()).unwrap(),
+            BOp::Return         => 0,
+            BOp::Pop            => 0,
             BOp::Noop           => 0,
         };
 
@@ -59,10 +65,13 @@ impl BOp {
             &BOp::GetLocal(_)    => 1,
             &BOp::SetLocal(_)    => 2,
             &BOp::Call(_)        => 3,
-            &BOp::PushAddress(_) => 4,
-            &BOp::BranchIf(_)    => 5,
-            &BOp::BranchIfNot(_) => 6,
-            &BOp::Noop           => 7,
+            &BOp::Invoke(_)      => 4,
+            &BOp::Return         => 5,
+            &BOp::PushAddress(_) => 6,
+            &BOp::BranchIf(_)    => 7,
+            &BOp::BranchIfNot(_) => 8,
+            &BOp::Pop            => 9,
+            &BOp::Noop           => 10,
         }
     }
 }
@@ -75,7 +84,7 @@ pub struct BCall {
     /// Number of arguments that have been pushed to the stack.
     pub num_args: u8,
 }
-// addr:u64 num_args:u8 [arg:u8]* out:u8
+// addr:u64 num_args:u8
 impl BinarySerializable for BCall {
     fn from_binary(input: &mut Cursor<BBytes>) -> BCall {
         let addr     = input.read_addr();
@@ -92,6 +101,28 @@ impl BinarySerializable for BCall {
 impl IntoOpConvertable for BCall {
     fn into_op(self) -> BOp {
         BOp::Call(self)
+    }
+}
+
+/// Consume an address off the stack and call the function at that address.
+#[derive(Clone)]
+pub struct BInvoke {
+    pub num_args: u8,
+}
+impl BinarySerializable for BInvoke {
+    fn from_binary(input: &mut Cursor<BBytes>) -> BInvoke {
+        let num_args = input.read_hu8();
+        BInvoke { num_args: num_args, }
+    }
+    fn to_binary(&self) -> Vec<u8> {
+        let mut bytes = vec![];
+        bytes.write_hu8(self.num_args);
+        bytes
+    }
+}
+impl IntoOpConvertable for BInvoke {
+    fn into_op(self) -> BOp {
+        BOp::Invoke(self)
     }
 }
 
