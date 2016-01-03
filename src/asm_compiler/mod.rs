@@ -22,6 +22,7 @@ impl OpVecExt for OpVec {
 enum Op {
     BOp(BOp),
     BOpRef(RefCell<BOp>),
+    BOpRc(Rc<BOp>),
 }
 
 #[derive(Clone)]
@@ -72,6 +73,9 @@ impl Locals {
 }
 
 pub enum RelocationTarget {
+    /// Internal address for a jump
+    InternalBranchAddress(Rc<BOp>),
+    /// Internal address of a function (for anonymous functions)
     InternalFunctionAddress(Rc<Function>),
     /// Absolute string version of the path to the external function
     ExternalFunctionPath(String),
@@ -119,6 +123,13 @@ impl Module {
         self.relocations.push(Relocation {
             site: site,
             target: RelocationTarget::ExternalFunctionPath(target),
+        })
+    }
+
+    fn add_branch_relocation(&mut self, site: RefCell<BOp>, target: Rc<BOp>) {
+        self.relocations.push(Relocation {
+            site: site,
+            target: RelocationTarget::InternalBranchAddress(target),
         })
     }
 }
@@ -172,7 +183,7 @@ impl Compile for asm::Statement {
             // StatementReturn(Return),
             // StatementCall(Call),
             // StatementTest(Test),
-            // StatementIf(If),
+            StatementIf(ref i)          => i.compile(lc, m),
             // StatementThen(Then),
             // StatementElse(Else),
             // StatementWhile(While),
@@ -267,5 +278,49 @@ impl CompileToValue for asm::Fn {
         m.add_function_relocation(op.clone(), fref);
 
         vec![Op::BOpRef(op)]
+    }
+}
+
+impl asm::If {
+    /// Compiles the body of the if condition. Since the `test` statement is last it will
+    /// push a value to the top of the stack.
+    fn compile_if_to_value(&self, lc: LocalContextRef, m: &mut Module) -> OpVec {
+        let mut ops = self.condition.compile(lc, m);
+        let entry = ops[0].clone();
+
+        if let Op::BOp(plain_entry) = entry {
+            ops.remove(0);
+            ops.insert(0, Op::BOpRc(Rc::new(plain_entry.clone())));
+        }
+
+        ops
+    }
+}
+
+impl Compile for asm::If {
+    fn compile(&self, lc: LocalContextRef, m: &mut Module) -> OpVec {
+        let mut ops = OpVec::new();
+
+        let if_ops   = self.compile_if_to_value(lc, m);
+        let then_ops = self.then_sibling.compile(lc, m);
+
+        let branch_if_not = RefCell::new(BBranchIf { dest: 0, }.into_op());
+        let noop          = Rc::new(BOp::Noop);
+
+        ops.extend(if_ops.clone());
+        ops.push(Op::BOpRef(branch_if_not.clone())); // Branch to the noop if it fails
+        ops.extend(then_ops.clone());
+        ops.push(Op::BOpRc(noop.clone())); // Target if branch fails
+
+        // Track that the branch-if-not needs to eventually point to the noop
+        m.add_branch_relocation(branch_if_not, noop);
+
+        ops
+    }
+}
+
+impl Compile for asm::Then {
+    fn compile(&self, lc: LocalContextRef, m: &mut Module) -> OpVec {
+        self.body.compile(lc, m)
     }
 }

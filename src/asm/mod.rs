@@ -307,14 +307,14 @@ pub struct Test {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct If {
-    condition: BasicBlock,
-    then_sibling: Then,
+    pub condition: BasicBlock,
+    pub then_sibling: Then,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Then {
-    body: BasicBlock,
-    else_sibling: Option<Else>
+    pub body: BasicBlock,
+    pub else_sibling: Option<Else>
 }
 
 #[derive(Clone, Debug, PartialEq)]

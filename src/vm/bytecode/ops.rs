@@ -26,6 +26,9 @@ pub enum BOp {
     SetLocal(BSetLocal),
     Call(BCall),
     PushAddress(BPushAddress),
+    BranchIf(BBranchIf),
+    BranchIfNot(BBranchIfNot),
+    Noop,
 }
 impl BOp {
     pub fn to_binary(self) -> Vec<u8> {
@@ -37,6 +40,9 @@ impl BOp {
             BOp::SetLocal(s)    => bytes.write(&s.to_binary()).unwrap(),
             BOp::Call(c)        => bytes.write(&c.to_binary()).unwrap(),
             BOp::PushAddress(a) => bytes.write(&a.to_binary()).unwrap(),
+            BOp::BranchIf(b)    => bytes.write(&b.to_binary()).unwrap(),
+            BOp::BranchIfNot(b) => bytes.write(&b.to_binary()).unwrap(),
+            BOp::Noop           => 0,
         };
 
         bytes
@@ -54,6 +60,9 @@ impl BOp {
             &BOp::SetLocal(_)    => 2,
             &BOp::Call(_)        => 3,
             &BOp::PushAddress(_) => 4,
+            &BOp::BranchIf(_)    => 5,
+            &BOp::BranchIfNot(_) => 6,
+            &BOp::Noop           => 7,
         }
     }
 }
@@ -222,5 +231,47 @@ impl BinarySerializable for BPushAddress {
 impl IntoOpConvertable for BPushAddress {
     fn into_op(self) -> BOp {
         BOp::PushAddress(self)
+    }
+}
+
+#[derive(Clone)]
+pub struct BBranchIf {
+    pub dest: Addr,
+}
+impl BinarySerializable for BBranchIf {
+    fn from_binary(input: &mut Cursor<BBytes>) -> BBranchIf {
+        let addr = input.read_addr();
+        BBranchIf { dest: addr, }
+    }
+    fn to_binary(&self) -> Vec<u8> {
+        let mut bytes = vec![];
+        bytes.write_addr(self.dest);
+        bytes
+    }
+}
+impl IntoOpConvertable for BBranchIf {
+    fn into_op(self) -> BOp {
+        BOp::BranchIf(self)
+    }
+}
+
+#[derive(Clone)]
+pub struct BBranchIfNot {
+    pub dest: Addr,
+}
+impl BinarySerializable for BBranchIfNot {
+    fn from_binary(input: &mut Cursor<BBytes>) -> BBranchIfNot {
+        let addr = input.read_addr();
+        BBranchIfNot { dest: addr, }
+    }
+    fn to_binary(&self) -> Vec<u8> {
+        let mut bytes = vec![];
+        bytes.write_addr(self.dest);
+        bytes
+    }
+}
+impl IntoOpConvertable for BBranchIfNot {
+    fn into_op(self) -> BOp {
+        BOp::BranchIfNot(self)
     }
 }
