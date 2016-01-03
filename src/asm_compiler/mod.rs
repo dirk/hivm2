@@ -3,18 +3,21 @@ use asm::Statement::*;
 use asm::AssignmentOp;
 use vm::bytecode::ops::*;
 
-use std::cell::RefCell;
 use std::rc::Rc;
 
 type ByteVec = Vec<u8>;
 pub type OpVec = Vec<Op>;
 
 trait OpVecExt {
-    fn push_op(&mut self, BOp);
+    fn push_owned(&mut self, BOp);
+    fn push_shared(&mut self, Rc<BOp>);
 }
 impl OpVecExt for OpVec {
-    fn push_op(&mut self, op: BOp) {
+    fn push_owned(&mut self, op: BOp) {
         self.push(Op::Owned(op))
+    }
+    fn push_shared(&mut self, op: Rc<BOp>) {
+        self.push(Op::Shared(op))
     }
 }
 
@@ -22,7 +25,6 @@ impl OpVecExt for OpVec {
 enum Op {
     Owned(BOp),
     Shared(Rc<BOp>),
-    SharedMut(Rc<RefCell<BOp>>),
 }
 
 /// Internal storage for all the locals in a LocalContext.
@@ -87,7 +89,7 @@ pub enum RelocationTarget {
 /// updated to point at the correct final address.
 pub struct Relocation {
     /// Site that must have its address relocated
-    pub site: Rc<RefCell<BOp>>,
+    pub site: Rc<BOp>,
     /// Where this site should eventually point to
     pub target: RelocationTarget,
 }
@@ -117,21 +119,21 @@ impl Module {
         fref
     }
 
-    fn add_function_relocation(&mut self, site: Rc<RefCell<BOp>>, target: Rc<Function>) {
+    fn add_function_relocation(&mut self, site: Rc<BOp>, target: Rc<Function>) {
         self.relocations.push(Relocation {
             site: site,
             target: RelocationTarget::InternalFunctionAddress(target),
         })
     }
 
-    fn add_call_relocation(&mut self, site: Rc<RefCell<BOp>>, target: String) {
+    fn add_call_relocation(&mut self, site: Rc<BOp>, target: String) {
         self.relocations.push(Relocation {
             site: site,
             target: RelocationTarget::ExternalFunctionPath(target),
         })
     }
 
-    fn add_branch_relocation(&mut self, site: Rc<RefCell<BOp>>, target: Rc<BOp>) {
+    fn add_branch_relocation(&mut self, site: Rc<BOp>, target: Rc<BOp>) {
         self.relocations.push(Relocation {
             site: site,
             target: RelocationTarget::InternalBranchAddress(target),
@@ -221,7 +223,7 @@ impl CompileToValue for asm::Value {
 impl Compile for asm::Call {
     fn compile(&self, lc: LocalContextRef, m: &mut Module) -> OpVec {
         let mut ops = self.compile_to_value(lc, m);
-        ops.push_op(BOp::Pop); // Pop the value since it won't be used
+        ops.push_owned(BOp::Pop); // Pop the value since it won't be used
         ops
     }
 }
@@ -233,14 +235,14 @@ impl CompileToValue for asm::Call {
         for name in args {
             let idx = lc.unwrap().locals.find(name.clone()).unwrap();
 
-            ops.push_op(BGetLocal { idx: idx, }.into_op());
+            ops.push_owned(BGetLocal { idx: idx, }.into_op());
         }
 
         let num_args = self.arguments.len() as u8;
-        let op = Rc::new(RefCell::new(BCall { addr: 0, num_args: num_args, }.into_op()));
+        let op = Rc::new(BCall { addr: 0, num_args: num_args, }.into_op());
         m.add_call_relocation(op.clone(), self.name.clone());
 
-        ops.push(Op::SharedMut(op));
+        ops.push_shared(op);
         ops
     }
 }
@@ -257,7 +259,7 @@ impl Compile for asm::Assignment {
         let mut ops: OpVec = vec![];
 
         ops.extend(self.rvalue.compile_to_value(lc, m));
-        ops.push_op(BSetLocal { idx: idx, }.into_op());
+        ops.push_owned(BSetLocal { idx: idx, }.into_op());
 
         ops
     }
@@ -269,7 +271,7 @@ fn compile_function_body(body: &asm::BasicBlock, m: &mut Module) -> OpVec {
     let entry  = BFnEntry { num_locals: locals.len() as u16, };
 
     let mut ops: OpVec = vec![];
-    ops.push_op(entry.into_op());
+    ops.push_owned(entry.into_op());
 
     let lc = LocalContext { locals: locals, };
     ops.extend(body.compile(Some(&lc), m));
@@ -291,12 +293,11 @@ impl CompileToValue for asm::Fn {
         let ops  = compile_function_body(&self.body, m);
         let fref = m.add_fn(Function { ops: ops, });
 
-        // Using `RefCell` so that we have a shared mutable pointer with which we can later
-        // update the op with the correct address.
-        let op = Rc::new(RefCell::new(BPushAddress { addr: 0, }.into_op()));
+        // Using `Rc` so that we have a shared pointer that we can use to look up the op later
+        let op = Rc::new(BPushAddress { addr: 0, }.into_op());
         m.add_function_relocation(op.clone(), fref);
 
-        vec![Op::SharedMut(op)]
+        vec![Op::Shared(op)]
     }
 }
 
@@ -323,13 +324,13 @@ impl Compile for asm::If {
         let if_ops   = self.compile_if_to_value(lc, m);
         let then_ops = self.then_sibling.compile(lc, m);
 
-        let branch_if_not = Rc::new(RefCell::new(BBranchIf { dest: 0, }.into_op()));
+        let branch_if_not = Rc::new(BBranchIf { dest: 0, }.into_op());
         let noop          = Rc::new(BOp::Noop);
 
         ops.extend(if_ops.clone());
-        ops.push(Op::SharedMut(branch_if_not.clone())); // Branch to the noop if it fails
+        ops.push_shared(branch_if_not.clone()); // Branch to the noop if it fails
         ops.extend(then_ops.clone());
-        ops.push(Op::Shared(noop.clone())); // Target if branch fails
+        ops.push_shared(noop.clone()); // Target if branch fails
 
         // Track that the branch-if-not needs to eventually point to the noop
         m.add_branch_relocation(branch_if_not, noop);
