@@ -19,7 +19,7 @@ pub trait IntoOpConvertable {
     fn into_op(self) -> BOp;
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum BOp {
     FnEntry(BFnEntry),
     GetLocal(BGetLocal),
@@ -59,7 +59,7 @@ impl BOp {
         ops.into_iter().flat_map(|op| op.to_binary()).collect()
     }
 
-    fn opcode(&self) -> u8 {
+    pub fn opcode(&self) -> u8 {
         match self {
             &BOp::FnEntry(_)     => 0,
             &BOp::GetLocal(_)    => 1,
@@ -74,10 +74,24 @@ impl BOp {
             &BOp::Noop           => 10,
         }
     }
+
+    /// Returns the offset of the given address field in the op's compiled bytecode
+    #[allow(unused_variables)]
+    pub fn addr_field_offset(&self, idx: u8) -> u64 {
+        let offset = match self {
+            &BOp::Call(_)        => 0,
+            &BOp::BranchIf(_)    => 0,
+            &BOp::BranchIfNot(_) => 0,
+            _                    => panic!("Op has no address fields: {:?}", self),
+        };
+
+        // 1 byte needed for the actual opcode
+        1 + offset
+    }
 }
 
 /// Call a function at a specific address in the virtual machine.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct BCall {
     /// Address of the function to be called
     pub addr: Addr,
@@ -105,7 +119,7 @@ impl IntoOpConvertable for BCall {
 }
 
 /// Consume an address off the stack and call the function at that address.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct BInvoke {
     pub num_args: u8,
 }
@@ -160,7 +174,7 @@ impl BinarySerializable for BCallNative {
 // }
 
 /// Set the value of a local variable to that of the given argument.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct BSetLocal {
     pub idx: Local,
 }
@@ -182,7 +196,7 @@ impl IntoOpConvertable for BSetLocal {
 }
 
 /// Get the value of a local variable.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct BGetLocal {
     pub idx: Local,
 }
@@ -222,7 +236,7 @@ impl BinarySerializable for BGetArg {
 
 /// No-op entry to a function that sets up the local slots for the function. Must always be first
 /// op in a function.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct BFnEntry {
     /// Defines the number of local slots
     pub num_locals: u16,
@@ -244,7 +258,7 @@ impl IntoOpConvertable for BFnEntry {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct BPushAddress {
     pub addr: Addr,
 }
@@ -265,7 +279,7 @@ impl IntoOpConvertable for BPushAddress {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct BBranchIf {
     pub dest: Addr,
 }
@@ -286,7 +300,7 @@ impl IntoOpConvertable for BBranchIf {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct BBranchIfNot {
     pub dest: Addr,
 }

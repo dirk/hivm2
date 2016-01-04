@@ -2,7 +2,7 @@
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Module {
-    stmts: Vec<Statement>
+    pub stmts: Vec<Statement>
 }
 
 impl Module {

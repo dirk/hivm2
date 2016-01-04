@@ -3,6 +3,8 @@ use asm::Statement::*;
 use asm::AssignmentOp;
 use vm::bytecode::ops::*;
 
+use std::hash::{Hash, Hasher};
+use std::mem;
 use std::rc::Rc;
 
 type ByteVec = Vec<u8>;
@@ -94,6 +96,12 @@ pub struct Relocation {
     pub target: RelocationTarget,
 }
 
+/// Representation of named and anonymous functions in a compiled module.
+#[derive(Clone)]
+pub struct Function {
+    pub ops: OpVec,
+}
+
 pub struct Module {
     /// All the relocations in this module
     pub relocations: Vec<Relocation>,
@@ -101,13 +109,64 @@ pub struct Module {
     pub functions: Vec<Rc<Function>>,
 }
 
-/// Representation of named and anonymous functions in a compiled module.
-#[derive(Clone)]
-pub struct Function {
-    pub ops: OpVec,
+trait PointerPartialEq {
+    fn pointer_eq(&self, other: &Self) -> bool {
+        (self as *const Self) == (other as *const Self)
+    }
+}
+impl PointerPartialEq for BOp {}
+impl PointerPartialEq for Function {}
+
+trait PointerHash {
+    fn pointer_hash<H: Hasher>(&self, state: &mut H) {
+        let ptr: *const usize = unsafe { mem::transmute(&self) };
+        state.write_u64(ptr as u64)
+    }
+}
+impl PointerHash for BOp {}
+impl PointerHash for Function {}
+
+/// Custom equality for BOp; we're comparing pointers instead of values because values can be
+/// identical for different BOps in the op stream.
+impl PartialEq for BOp {
+    fn eq(&self, other: &BOp) -> bool {
+        self.pointer_eq(other)
+    }
+}
+impl Eq for BOp {}
+
+/// Custom hash for BOp; using their raw pointers since their the value of different BOps in
+/// the op stream can be the same.
+impl Hash for BOp {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.pointer_hash(state)
+    }
+}
+
+/// Function values may also be the same (they have the same op stream), so we're comparing
+/// them based on their pointers.
+impl PartialEq for Function {
+    fn eq(&self, other: &Function) -> bool {
+        self.pointer_eq(other)
+    }
+}
+impl Eq for Function {}
+
+/// Functions should be distinct in the hash based on their location in memory.
+impl Hash for Function {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.pointer_hash(state)
+    }
 }
 
 impl Module {
+    fn new() -> Module {
+        Module {
+            relocations: vec![],
+            functions: vec![],
+        }
+    }
+
     fn add_fn(&mut self, f: Function) -> Rc<Function> {
         let fref = Rc::new(f);
         self.functions.push(fref.clone());
@@ -140,6 +199,117 @@ impl Module {
         })
     }
 }
+
+pub enum CompiledRelocationTarget {
+    InternalAddress(u64),
+    ExternalFunctionPath(String),
+}
+
+pub struct CompiledModule {
+    pub bytecode: Vec<u8>,
+    pub relocations: Vec<(u64, CompiledRelocationTarget)>,
+}
+
+use std::collections::HashMap;
+use std::borrow::Borrow;
+
+type OpMap = HashMap<Rc<BOp>, u64>;
+type FunctionMap = HashMap<Rc<Function>, u64>;
+type CompiledRelocationVec = Vec<(u64, CompiledRelocationTarget)>;
+
+impl asm::Module {
+    pub fn compile(&mut self) -> CompiledModule {
+        let mut module = Module::new();
+
+        let mut op_map: OpMap             = HashMap::new();
+        let mut function_map: FunctionMap = HashMap::new();
+        let mut bytecode: Vec<u8>         = Vec::new();
+
+        // Compile and ingest the top-level module statements
+        {
+            let mut module_ops = OpVec::new();
+            let ref stmts = self.stmts;
+            for stmt in stmts {
+                module_ops.extend(stmt.compile(None, &mut module))
+            }
+            self.ingest_ops(&mut bytecode, module_ops, &mut op_map);
+        }
+
+        // Ingest all the compiled functions
+        for fref in module.functions {
+            // This will be the address of the `BFnEntry` op
+            let addr = bytecode.len() as u64;
+            function_map.insert(fref.clone(), addr);
+
+            let function_ops = fref.ops.clone();
+            self.ingest_ops(&mut bytecode, function_ops, &mut op_map);
+        }
+
+        let relocations = self.resolve_relocations(module.relocations, &op_map, &function_map);
+
+        CompiledModule {
+            bytecode: bytecode,
+            relocations: relocations,
+        }
+    }
+
+    fn ingest_ops(&self, bytecode: &mut Vec<u8>, ops: OpVec, op_map: &mut OpMap) {
+        for op in ops {
+            match op {
+                Op::Owned(op) => bytecode.extend(op.to_binary()),
+                Op::Shared(opref) => {
+                    // Length of the vec will be the first address of the op we're inserting
+                    let addr = bytecode.len() as u64;
+                    op_map.insert(opref.clone(), addr);
+
+                    let op: &BOp = opref.borrow();
+                    bytecode.extend(op.clone().to_binary())
+                },
+            }
+        }
+    }
+
+    fn resolve_relocations(&self, relocations: Vec<Relocation>, op_map: &OpMap, function_map: &FunctionMap) -> CompiledRelocationVec {
+        // Resolve all the relocations
+        let mut compiled_relocations: CompiledRelocationVec = Vec::new();
+
+        for relocation in relocations {
+            let site              = relocation.site;
+            let site_base_address = op_map.get(&site).unwrap();
+
+            // Right now all ops have a max of 1 address
+            let site_address = site_base_address + site.addr_field_offset(0);
+
+            let compiled = match relocation.target {
+                RelocationTarget::InternalBranchAddress(op) => {
+                    let target_addr = op_map.get(&op).unwrap();
+                    (
+                        site_address,
+                        CompiledRelocationTarget::InternalAddress(*target_addr)
+                    )
+                },
+                RelocationTarget::InternalFunctionAddress(fref) => {
+                    let target_addr = function_map.get(&fref).unwrap();
+                    (
+                        site_address,
+                        CompiledRelocationTarget::InternalAddress(*target_addr)
+                    )
+                },
+                RelocationTarget::ExternalFunctionPath(path) => {
+                    (
+                        site_address,
+                        CompiledRelocationTarget::ExternalFunctionPath(path)
+                    )
+                },
+            };
+
+            compiled_relocations.push(compiled)
+        }
+
+        compiled_relocations
+    }
+
+}// impl asm::Module
 
 impl asm::BasicBlock {
     fn collect_locals(&self) -> Locals {
