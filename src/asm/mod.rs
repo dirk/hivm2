@@ -28,17 +28,10 @@ impl Module {
         self.stmts.push(Statement::StatementStatic(s));
     }
 
-    pub fn push_assignment(&mut self, a: Assignment) {
-        self.stmts.push(Statement::StatementAssignment(a));
-    }
-
     pub fn push_defn(&mut self, d: Defn) {
         self.stmts.push(Statement::StatementDefn(d));
     }
 
-    pub fn push_return(&mut self, r: Return) {
-        self.stmts.push(Statement::StatementReturn(r));
-    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -411,16 +404,4 @@ mod tests {
         })
     }
 
-    #[test]
-    fn push_return() {
-        assert_pushes(|p: &mut Module| {
-            let r = Return::new(None);
-            p.push_return(r);
-        });
-
-        assert_pushes(|p: &mut Module| {
-            let r = Return::new(Some(Value::from_name_str("a_local")));
-            p.push_return(r);
-        })
-    }
 }

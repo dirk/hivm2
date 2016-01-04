@@ -515,18 +515,11 @@ mod tests {
 
         let m = Mod::new(Path::with_name("foo".to_string()));
         let s = Static::new("$bar".to_string());
-        let a = Assignment::new(
-            "baz".to_string(),
-            AssignmentOp::AllocateAndAssign,
-            Value::from_name_str("$bar"),
-        );
-
         expected_module.push_mod(m);
         expected_module.push_static(s);
-        expected_module.push_assignment(a);
 
         assert_eq!(
-            pmodule(b"mod foo\nstatic $bar\nbaz := $bar"),
+            pmodule(b"mod foo\nstatic $bar"),
             done(expected_module)
         )
     }

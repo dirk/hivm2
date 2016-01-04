@@ -213,9 +213,9 @@ pub struct CompiledModule {
 use std::collections::HashMap;
 use std::borrow::Borrow;
 
-type OpMap = HashMap<Rc<BOp>, u64>;
-type FunctionMap = HashMap<Rc<Function>, u64>;
-type CompiledRelocationVec = Vec<(u64, CompiledRelocationTarget)>;
+pub type OpMap = HashMap<Rc<BOp>, u64>;
+pub type FunctionMap = HashMap<Rc<Function>, u64>;
+pub type CompiledRelocationVec = Vec<(u64, CompiledRelocationTarget)>;
 
 impl asm::Module {
     pub fn compile(&mut self) -> CompiledModule {
@@ -235,7 +235,7 @@ impl asm::Module {
             self.ingest_ops(&mut bytecode, module_ops, &mut op_map);
         }
 
-        // Ingest all the compiled functions
+        // Ingest all the compiled functions; track their entry addresses in `function_map`
         for fref in module.functions {
             // This will be the address of the `BFnEntry` op
             let addr = bytecode.len() as u64;
@@ -253,7 +253,9 @@ impl asm::Module {
         }
     }
 
-    fn ingest_ops(&self, bytecode: &mut Vec<u8>, ops: OpVec, op_map: &mut OpMap) {
+    /// Take a vector of higher-level owned and shared `Op`s and compile them down to bytecode.
+    /// Also notes the module-local addresses of shared `Op`s for later relocation in an `OpMap`.
+    pub fn ingest_ops(&self, bytecode: &mut Vec<u8>, ops: OpVec, op_map: &mut OpMap) {
         for op in ops {
             match op {
                 Op::Owned(op) => bytecode.extend(op.to_binary()),
@@ -269,7 +271,10 @@ impl asm::Module {
         }
     }
 
-    fn resolve_relocations(&self, relocations: Vec<Relocation>, op_map: &OpMap, function_map: &FunctionMap) -> CompiledRelocationVec {
+    /// Resolves abstract relocations (`Relocation`) into a vector of concrete, address-based
+    /// relocations (`CompiledRelocationVec`) suitable for loading and linking into a
+    /// virtual machine instance.
+    pub fn resolve_relocations(&self, relocations: Vec<Relocation>, op_map: &OpMap, function_map: &FunctionMap) -> CompiledRelocationVec {
         // Resolve all the relocations
         let mut compiled_relocations: CompiledRelocationVec = Vec::new();
 
