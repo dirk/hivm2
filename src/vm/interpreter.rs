@@ -7,14 +7,20 @@ pub trait Execute {
 }
 
 impl Machine {
+    #[inline]
     fn get_stack_top_mut(&mut self) -> &mut Frame {
         self.call_stack.last_mut().unwrap()
     }
 
+    #[inline]
     fn get_stack_top(&self) -> &Frame {
         self.call_stack.last().unwrap()
     }
 
+    /// Pop `num` entries off the top of the stack into a `Vec`. The first item in the vector
+    /// will be the lowest item on the stack and the last item in the vector will be the highest
+    /// (ie. at the top) of the stack.
+    #[inline]
     fn pop_stack_into_vec(&mut self, num: usize) -> Vec<ValuePointer> {
         let mut out: Vec<ValuePointer> = Vec::with_capacity(num);
 
@@ -26,6 +32,8 @@ impl Machine {
         out
     }
 
+    /// Pop `num_args` off the stack and build a stack frame with the given `return_addr`.
+    #[inline]
     fn build_frame(&mut self, return_addr: u64, num_args: usize) -> Frame {
         Frame {
             return_addr: return_addr,
@@ -93,7 +101,8 @@ impl Execute for Machine {
                     }
                 },
                 Return => {
-                    // TODO: Implement return
+                    let frame = self.call_stack.pop().unwrap();
+                    next_addr = frame.return_addr;
                 },
                 Pop => {
                     self.stack.pop().unwrap();
@@ -105,4 +114,4 @@ impl Execute for Machine {
         } // loop
     }
 
-} // impl Machine
+} // impl Execute for Machine
