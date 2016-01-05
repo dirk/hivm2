@@ -206,7 +206,7 @@ pub enum CompiledRelocationTarget {
 }
 
 pub struct CompiledModule {
-    pub bytecode: Vec<u8>,
+    pub code: Vec<u8>,
     pub relocations: Vec<(u64, CompiledRelocationTarget)>,
 }
 
@@ -217,13 +217,17 @@ pub type OpMap = HashMap<Rc<BOp>, u64>;
 pub type FunctionMap = HashMap<Rc<Function>, u64>;
 pub type CompiledRelocationVec = Vec<(u64, CompiledRelocationTarget)>;
 
-impl asm::Module {
-    pub fn compile(&mut self) -> CompiledModule {
+pub trait CompileModule {
+    fn compile(&mut self) -> CompiledModule;
+}
+
+impl CompileModule for asm::Module {
+    fn compile(&mut self) -> CompiledModule {
         let mut module = Module::new();
 
         let mut op_map: OpMap             = HashMap::new();
         let mut function_map: FunctionMap = HashMap::new();
-        let mut bytecode: Vec<u8>         = Vec::new();
+        let mut code: Vec<u8>         = Vec::new();
 
         // Compile and ingest the top-level module statements
         {
@@ -232,27 +236,29 @@ impl asm::Module {
             for stmt in stmts {
                 module_ops.extend(stmt.compile(None, &mut module))
             }
-            self.ingest_ops(&mut bytecode, module_ops, &mut op_map);
+            self.ingest_ops(&mut code, module_ops, &mut op_map);
         }
 
         // Ingest all the compiled functions; track their entry addresses in `function_map`
         for fref in module.functions {
             // This will be the address of the `BFnEntry` op
-            let addr = bytecode.len() as u64;
+            let addr = code.len() as u64;
             function_map.insert(fref.clone(), addr);
 
             let function_ops = fref.ops.clone();
-            self.ingest_ops(&mut bytecode, function_ops, &mut op_map);
+            self.ingest_ops(&mut code, function_ops, &mut op_map);
         }
 
         let relocations = self.resolve_relocations(module.relocations, &op_map, &function_map);
 
         CompiledModule {
-            bytecode: bytecode,
+            code: code,
             relocations: relocations,
         }
     }
+} // impl CompileModule for asm::Module
 
+impl asm::Module {
     /// Take a vector of higher-level owned and shared `Op`s and compile them down to bytecode.
     /// Also notes the module-local addresses of shared `Op`s for later relocation in an `OpMap`.
     pub fn ingest_ops(&self, bytecode: &mut Vec<u8>, ops: OpVec, op_map: &mut OpMap) {

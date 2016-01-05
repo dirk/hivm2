@@ -16,6 +16,7 @@ pub trait NativeEndianWriteExt: io::Write + WriteBytesExt {
     fn write_hu8(&mut self, u: u8)   { self.write_u8(u).unwrap() }
     fn write_hu16(&mut self, u: u16) { self.write_u16::<NativeEndian>(u).unwrap() }
     fn write_hu32(&mut self, u: u32) { self.write_u32::<NativeEndian>(u).unwrap() }
+    fn write_hu64(&mut self, u: u64) { self.write_u64::<NativeEndian>(u).unwrap() }
 }
 impl<R: io::Write + WriteBytesExt> NativeEndianWriteExt for R {}
 

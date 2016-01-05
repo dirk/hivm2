@@ -1,6 +1,6 @@
 use super::machine::{Frame, Machine, ValuePointer};
 
-use std::io::{Cursor, Seek, SeekFrom};
+use std::io::{Cursor};
 
 pub trait Execute {
     fn execute(&mut self);
@@ -51,7 +51,7 @@ impl Execute for Machine {
         let code = self.code.clone();
 
         let mut cursor = Cursor::new(&code);
-        cursor.seek(SeekFrom::Start(self.ip)).unwrap();
+        cursor.set_position(self.ip);
 
         loop {
             let op = BOp::from_binary(&mut cursor);
@@ -111,6 +111,7 @@ impl Execute for Machine {
             };
 
             self.ip = next_addr;
+            cursor.set_position(next_addr);
         } // loop
     }
 
