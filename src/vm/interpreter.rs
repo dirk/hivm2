@@ -1,4 +1,4 @@
-use super::machine::{Frame, Machine};
+use super::machine::{Frame, Machine, ValuePointer};
 
 use std::io::{Cursor, Seek, SeekFrom};
 
@@ -13,6 +13,25 @@ impl Machine {
 
     fn get_stack_top(&self) -> &Frame {
         self.call_stack.last().unwrap()
+    }
+
+    fn pop_stack_into_vec(&mut self, num: usize) -> Vec<ValuePointer> {
+        let mut out: Vec<ValuePointer> = Vec::with_capacity(num);
+
+        for idx in (0..num).rev() {
+            let value = self.stack.pop().unwrap();
+            out[idx] = value
+        }
+
+        out
+    }
+
+    fn build_frame(&mut self, return_addr: u64, num_args: usize) -> Frame {
+        Frame {
+            return_addr: return_addr,
+            args: self.pop_stack_into_vec(num_args),
+            slots: Vec::new(),
+        }
     }
 }
 
@@ -49,20 +68,12 @@ impl Execute for Machine {
                     frame.slots[set_local.idx as usize] = value;
                 },
                 Call(call) => {
-                    // TODO: Pop args off the stack and put them in the `Frame`
-                    let frame = Frame {
-                        slots: Vec::new(),
-                        return_addr: next_addr,
-                    };
+                    let frame = self.build_frame(next_addr, call.num_args as usize);
                     self.call_stack.push(frame);
                     next_addr = call.addr;
                 },
-                Invoke(_) => {
-                    // TODO: Correctly implement invoke (ie. pop args and put in frame)
-                    let frame = Frame {
-                        slots: Vec::new(),
-                        return_addr: next_addr,
-                    };
+                Invoke(invoke) => {
+                    let frame = self.build_frame(next_addr, invoke.num_args as usize);
                     self.call_stack.push(frame);
                     next_addr = self.stack.pop().unwrap();
                 },

@@ -14,6 +14,6 @@ pub struct Machine {
 
 pub struct Frame {
     pub return_addr: ValuePointer,
-
+    pub args: Vec<ValuePointer>,
     pub slots: Vec<u64>,
 }
