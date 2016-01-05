@@ -5,7 +5,7 @@ use super::util::*;
 
 use std::io::{Cursor, Write};
 
-pub type BBytes<'a> = &'a [u8];
+pub type BBytes<'a> = &'a Vec<u8>;
 
 /// Defines interface for reading and writing a ops (instructions) to/from bytecode. All ops in
 /// this module must implement this trait so that the VM can decode its instruction sequence
@@ -72,6 +72,25 @@ impl BOp {
             &BOp::BranchIfNot(_) => 8,
             &BOp::Pop            => 9,
             &BOp::Noop           => 10,
+        }
+    }
+
+    pub fn from_binary(input: &mut Cursor<BBytes>) -> Self {
+        let op = input.read_hu8();
+
+        match op {
+            0  => BOp::FnEntry(BFnEntry::from_binary(input)),
+            1  => BOp::GetLocal(BGetLocal::from_binary(input)),
+            2  => BOp::SetLocal(BSetLocal::from_binary(input)),
+            3  => BOp::Call(BCall::from_binary(input)),
+            4  => BOp::Invoke(BInvoke::from_binary(input)),
+            5  => BOp::Return,
+            6  => BOp::PushAddress(BPushAddress::from_binary(input)),
+            7  => BOp::BranchIf(BBranchIf::from_binary(input)),
+            8  => BOp::BranchIfNot(BBranchIfNot::from_binary(input)),
+            9  => BOp::Pop,
+            10 => BOp::Noop,
+            _  => panic!("Invalid opcode: {:?}"),
         }
     }
 

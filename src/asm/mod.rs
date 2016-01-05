@@ -1,5 +1,9 @@
 #![allow(dead_code)]
 
+pub enum ValidationError {
+    InvalidTopLevelStatement(Statement),
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Module {
     pub stmts: Vec<Statement>
@@ -30,6 +34,26 @@ impl Module {
 
     pub fn push_defn(&mut self, d: Defn) {
         self.stmts.push(Statement::StatementDefn(d));
+    }
+
+    /// Check that the module is properly formed and that it doesn't contain invalid statements.
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        let ref stmts = self.stmts;
+
+        for stmt in stmts {
+            match stmt {
+                &Statement::StatementMod(_)    |
+                &Statement::StatementExtern(_) |
+                &Statement::StatementConst(_)  |
+                &Statement::StatementStatic(_) |
+                &Statement::StatementDefn(_) => (),
+                _ => {
+                    return Err(ValidationError::InvalidTopLevelStatement(stmt.clone()))
+                },
+            }
+        }
+
+        Ok(())
     }
 
 }
