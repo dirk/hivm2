@@ -18,8 +18,28 @@ pub enum TableValue {
     Defn(u64),
 }
 
+impl TableValue {
+    fn as_u64(&self) -> u64 {
+        match *self {
+            TableValue::Const(vp) => vp,
+            TableValue::Static(vp) => vp,
+            TableValue::Defn(ptr) => ptr,
+        }
+    }
+}
+
 pub struct SymbolTable {
     table: HashMap<TableKey, TableValue>,
+}
+
+impl SymbolTable {
+    fn has_symbol(&self, symbol: &TableKey) -> bool {
+        self.table.contains_key(symbol)
+    }
+
+    fn lookup_symbol(&self, symbol: &TableKey) -> &TableValue {
+        self.table.get(symbol).unwrap()
+    }
 }
 
 /// The actual virtual machine
@@ -51,13 +71,13 @@ impl ModuleLoad for Machine {
         use super::super::asm_compiler::CompiledRelocationTarget::*;
 
         let compiled = module.compile();
+        let ref relocations = compiled.relocations;
 
         let base_addr = self.code.len() as u64;
         self.code.extend(compiled.code);
 
         let mut writer = Cursor::new(&mut self.code[..]);
 
-        let ref relocations = compiled.relocations;
         for relocation in relocations {
             let module_addr = relocation.0;
             let final_addr  = base_addr + module_addr;
@@ -71,9 +91,15 @@ impl ModuleLoad for Machine {
                     writer.write_hu64(target_final_addr);
                 },
                 &ExternalFunctionPath(ref path) => {
-                    panic!("Cannot handle named relocation: {:?}", path)
+                    if self.symbol_table.has_symbol(path) {
+                        let target = self.symbol_table.lookup_symbol(path);
+                        let target_addr = target.as_u64();
+                        writer.write_hu64(target_addr);
+                    } else {
+                        panic!("Symbol not found in symbol table: {:?}", path)
+                    }
                 },
             }
         }
-    }
+    }// fn load_module
 }
