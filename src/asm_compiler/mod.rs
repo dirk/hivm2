@@ -96,13 +96,22 @@ pub struct Relocation {
     pub target: RelocationTarget,
 }
 
+#[derive(Clone)]
+pub enum FunctionName {
+    Named(String),
+    Anonymous
+}
+
 /// Representation of named and anonymous functions in a compiled module.
 #[derive(Clone)]
 pub struct Function {
+    pub name: FunctionName,
     pub ops: OpVec,
 }
 
 pub struct Module {
+    /// Fully-qualified name of the module
+    pub name: String,
     /// All the relocations in this module
     pub relocations: Vec<Relocation>,
     /// All the functions in this module
@@ -162,6 +171,7 @@ impl Hash for Function {
 impl Module {
     fn new() -> Module {
         Module {
+            name: "".to_owned(),
             relocations: vec![],
             functions: vec![],
         }
@@ -207,6 +217,7 @@ pub enum CompiledRelocationTarget {
 
 pub struct CompiledModule {
     pub code: Vec<u8>,
+    pub symbols: Vec<(String, u64)>,
     pub relocations: Vec<(u64, CompiledRelocationTarget)>,
 }
 
@@ -225,9 +236,10 @@ impl CompileModule for asm::Module {
     fn compile(&mut self) -> CompiledModule {
         let mut module = Module::new();
 
-        let mut op_map: OpMap             = HashMap::new();
-        let mut function_map: FunctionMap = HashMap::new();
-        let mut code: Vec<u8>         = Vec::new();
+        let mut op_map: OpMap               = HashMap::new();
+        let mut function_map: FunctionMap   = HashMap::new();
+        let mut code: Vec<u8>               = Vec::new();
+        let mut symbols: Vec<(String, u64)> = Vec::new();
 
         // Compile and ingest the top-level module statements
         {
@@ -239,13 +251,18 @@ impl CompileModule for asm::Module {
             self.ingest_ops(&mut code, module_ops, &mut op_map);
         }
 
-        // Ingest all the compiled functions; track their entry addresses in `function_map`
-        for fref in module.functions {
+        // Ingest all the compiled functions; track their entry addresses in `function_map` and
+        // in the module's symbol list
+        for f in module.functions {
             // This will be the address of the `BFnEntry` op
             let addr = code.len() as u64;
-            function_map.insert(fref.clone(), addr);
+            function_map.insert(f.clone(), addr);
 
-            let function_ops = fref.ops.clone();
+            if let FunctionName::Named(ref name) = f.name {
+                symbols.push((name.clone(), addr))
+            }
+
+            let function_ops = f.ops.clone();
             self.ingest_ops(&mut code, function_ops, &mut op_map);
         }
 
@@ -253,6 +270,7 @@ impl CompileModule for asm::Module {
 
         CompiledModule {
             code: code,
+            symbols: symbols,
             relocations: relocations,
         }
     }
@@ -382,6 +400,20 @@ impl Compile for asm::Statement {
     }
 }
 
+impl Compile for asm::Mod {
+    fn compile(&self, _: LocalContextRef, m: &mut Module) -> OpVec {
+        let fully_qualified_name = self.path.to_string();
+
+        if m.name.is_empty() {
+            m.name = fully_qualified_name
+        } else {
+            panic!("Cannot redefine module: {:?}", m.name)
+        }
+
+        vec![]
+    }
+}
+
 impl asm::Value {
     fn compile_name_to_value(&self, name: asm::Name, lc: LocalContextRef, _: &mut Module) -> OpVec {
         let idx = lc.unwrap().locals.find(name).unwrap();
@@ -463,7 +495,10 @@ fn compile_function_body(body: &asm::BasicBlock, m: &mut Module) -> OpVec {
 impl Compile for asm::Defn {
     fn compile(&self, _: LocalContextRef, m: &mut Module) -> OpVec {
         let ops = compile_function_body(&self.body, m);
-        m.add_defn(Function { ops: ops, });
+        m.add_defn(Function {
+            name: FunctionName::Named(self.name.clone()),
+            ops: ops,
+        });
 
         vec![]
     }
@@ -472,7 +507,10 @@ impl Compile for asm::Defn {
 impl CompileToValue for asm::Fn {
     fn compile_to_value(&self, _: LocalContextRef, m: &mut Module) -> OpVec {
         let ops  = compile_function_body(&self.body, m);
-        let fref = m.add_fn(Function { ops: ops, });
+        let fref = m.add_fn(Function {
+            name: FunctionName::Anonymous,
+            ops: ops,
+        });
 
         // Using `Rc` so that we have a shared pointer that we can use to look up the op later
         let op = Rc::new(BPushAddress { addr: 0, }.into_op());

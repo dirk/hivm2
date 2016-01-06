@@ -2,6 +2,8 @@
 
 pub enum ValidationError {
     InvalidTopLevelStatement(Statement),
+    MissingModStatement,
+    MoreThanOneModStatement,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -39,18 +41,27 @@ impl Module {
     /// Check that the module is properly formed and that it doesn't contain invalid statements.
     pub fn validate(&self) -> Result<(), ValidationError> {
         let ref stmts = self.stmts;
+        let mut mod_statements = 0;
 
         for stmt in stmts {
             match stmt {
-                &Statement::StatementMod(_)    |
                 &Statement::StatementExtern(_) |
                 &Statement::StatementConst(_)  |
                 &Statement::StatementStatic(_) |
                 &Statement::StatementDefn(_) => (),
+                &Statement::StatementMod(_) => {
+                    mod_statements += 1
+                }
                 _ => {
                     return Err(ValidationError::InvalidTopLevelStatement(stmt.clone()))
                 },
             }
+        }
+
+        if mod_statements == 0 {
+            return Err(ValidationError::MissingModStatement)
+        } else if mod_statements > 1 {
+            return Err(ValidationError::MoreThanOneModStatement)
         }
 
         Ok(())
@@ -182,7 +193,7 @@ impl ToString for Path {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Mod {
-    path: Path,
+    pub path: Path,
 }
 
 impl Mod {
