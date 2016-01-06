@@ -421,7 +421,7 @@ impl CompileToValue for asm::Call {
 
         let num_args = self.arguments.len() as u8;
         let op = Rc::new(BCall { addr: 0, num_args: num_args, }.into_op());
-        m.add_call_relocation(op.clone(), self.name.clone());
+        m.add_call_relocation(op.clone(), self.path.to_string());
 
         ops.push_shared(op);
         ops

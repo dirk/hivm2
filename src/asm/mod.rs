@@ -166,6 +166,12 @@ impl Path {
     }
 }
 
+impl ToString for Path {
+    fn to_string(&self) -> String {
+        self.segments.join(".")
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Mod {
     path: Path,
@@ -304,14 +310,14 @@ impl Return {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Call {
-    pub name: Name,
+    pub path: Path,
     pub arguments: Vec<Name>,
 }
 
 impl Call {
-    fn new(name: Name, arguments: Vec<Name>) -> Call {
+    fn new(path: Path, arguments: Vec<Name>) -> Call {
         Call {
-            name: name,
+            path: path,
             arguments: arguments,
         }
     }
