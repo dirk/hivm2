@@ -154,6 +154,14 @@ impl Path {
         Ok(Path { segments: segments })
     }
 
+    pub fn ends_with_constant(&self) -> bool {
+        self.segments.last().unwrap().starts_with("@")
+    }
+
+    pub fn ends_with_static(&self) -> bool {
+        self.segments.last().unwrap().starts_with("$")
+    }
+
     pub fn with_name(name: Name) -> Path {
         Path::new(vec![name]).unwrap()
     }
@@ -315,7 +323,7 @@ pub struct Call {
 }
 
 impl Call {
-    fn new(path: Path, arguments: Vec<Name>) -> Call {
+    pub fn new(path: Path, arguments: Vec<Name>) -> Call {
         Call {
             path: path,
             arguments: arguments,

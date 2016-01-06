@@ -3,6 +3,7 @@ use asm::{
     Assignment,
     AssignmentOp,
     BasicBlock,
+    Call,
     Const,
     Defn,
     Extern,
@@ -19,7 +20,10 @@ use asm::{
 
 use nom::{
     alpha, digit, eof, is_space, multispace, space,
-    IResult, Needed
+    Err as NomErr,
+    ErrorKind,
+    IResult,
+    Needed
 };
 use std::str;
 
@@ -322,13 +326,49 @@ pub fn preturn(input: PBytes) -> PResult<Return> {
     )
 }
 
+pub fn pcall(input: PBytes) -> PResult<Call> {
+    fn arguments(input: PBytes) -> PResult<Vec<String>> {
+        named!(comma<PBytes, ()>,
+            chain!(opt!(space) ~ tag!(",") ~ opt!(space), ||{ () })
+        );
+
+        chain!(input,
+            tag!("(")                                  ~ space? ~
+            args: separated_list!(comma, ppidentifier) ~ space? ~
+            tag!(")")                                  ,
+
+            ||{ args }
+        )
+    }
+
+    fn path(input: PBytes) -> PResult<Path> {
+        let result = ppath(input);
+
+        match result {
+            IResult::Done(_, ref p) if p.ends_with_static() || p.ends_with_constant() => {
+                IResult::Error(NomErr::Position(ErrorKind::Tag, input))
+            },
+            _ => result
+        }
+    }
+
+    chain!(input,
+        tag!("call")    ~ space  ~
+        path: path      ~ space? ~
+        args: arguments ~
+        pterminal       ,
+
+        ||{ Call::new(path, args) }
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        passignment, pbasicblock, pconst, pdefn, plocal, ppath, pmodule, preturn, pstatic
+        passignment, pbasicblock, pcall, pconst, pdefn, plocal, ppath, pmodule, preturn, pstatic
     };
     use super::super::util::{PBytes};
-    use nom::{IResult};
+    use nom::{Err as NomErr, ErrorKind, IResult};
     use asm::*;
 
     const EMPTY: &'static [u8] = b"";
@@ -483,6 +523,38 @@ mod tests {
         let expected_return = Return::new(None);
 
         assert_eq!(parsed_return, IResult::Done(EMPTY, expected_return))
+    }
+
+    #[test]
+    fn parse_call_with_empty_arguments() {
+        let parsed_call = pcall(b"call a()");
+        let expected_call = Call::new(Path::from_str("a").unwrap(), vec![]);
+
+        assert_eq!(parsed_call, done(expected_call))
+    }
+
+    #[test]
+    fn parse_call_with_arguments() {
+        let parsed_call = pcall(b"call a(b)");
+        let expected_call = Call::new(Path::from_str("a").unwrap(), vec!["b".to_owned()]);
+
+        assert_eq!(parsed_call, done(expected_call))
+    }
+
+    #[test]
+    fn parse_call_extern() {
+        let parsed_call = pcall(b"call a.b()");
+        let expected_call = Call::new(Path::from_str("a.b").unwrap(), vec![]);
+
+        assert_eq!(parsed_call, done(expected_call))
+    }
+
+    #[test]
+    fn parse_error_with_bad_path() {
+        let parsed_call = pcall(b"call a.$b()");
+        let expected_error = IResult::Error(NomErr::Position(ErrorKind::Tag, "a.$b()".as_bytes()));
+
+        assert_eq!(parsed_call, expected_error)
     }
 
     #[test]
