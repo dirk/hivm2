@@ -109,6 +109,9 @@ pub struct Function {
     pub ops: OpVec,
 }
 
+/// 3-tuple of the name, constructor path, and optional argument.
+pub type CompiledConst = (String, String, Option<String>);
+
 pub struct Module {
     /// Fully-qualified name of the module
     pub name: String,
@@ -116,6 +119,8 @@ pub struct Module {
     pub relocations: Vec<Relocation>,
     /// All the functions in this module
     pub functions: Vec<Rc<Function>>,
+    pub consts: Vec<CompiledConst>,
+    pub statics: Vec<String>,
 }
 
 trait PointerPartialEq {
@@ -174,6 +179,8 @@ impl Module {
             name: "".to_owned(),
             relocations: vec![],
             functions: vec![],
+            consts: vec![],
+            statics: vec![],
         }
     }
 
@@ -217,7 +224,9 @@ pub enum CompiledRelocationTarget {
 
 pub struct CompiledModule {
     pub code: Vec<u8>,
-    pub symbols: Vec<(String, u64)>,
+    pub functions: Vec<(String, u64)>,
+    pub consts: Vec<CompiledConst>,
+    pub statics: Vec<String>,
     pub relocations: Vec<(u64, CompiledRelocationTarget)>,
 }
 
@@ -236,10 +245,10 @@ impl CompileModule for asm::Module {
     fn compile(&mut self) -> CompiledModule {
         let mut module = Module::new();
 
-        let mut op_map: OpMap               = HashMap::new();
-        let mut function_map: FunctionMap   = HashMap::new();
-        let mut code: Vec<u8>               = Vec::new();
-        let mut symbols: Vec<(String, u64)> = Vec::new();
+        let mut op_map: OpMap                 = HashMap::new();
+        let mut function_map: FunctionMap     = HashMap::new();
+        let mut code: Vec<u8>                 = Vec::new();
+        let mut functions: Vec<(String, u64)> = Vec::new();
 
         // Compile and ingest the top-level module statements
         {
@@ -259,7 +268,7 @@ impl CompileModule for asm::Module {
             function_map.insert(f.clone(), addr);
 
             if let FunctionName::Named(ref name) = f.name {
-                symbols.push((name.clone(), addr))
+                functions.push((name.clone(), addr))
             }
 
             let function_ops = f.ops.clone();
@@ -270,7 +279,9 @@ impl CompileModule for asm::Module {
 
         CompiledModule {
             code: code,
-            symbols: symbols,
+            functions: functions,
+            consts: module.consts,
+            statics: module.statics,
             relocations: relocations,
         }
     }
@@ -410,6 +421,21 @@ impl Compile for asm::Mod {
             panic!("Cannot redefine module: {:?}", m.name)
         }
 
+        vec![]
+    }
+}
+
+impl Compile for asm::Const {
+    fn compile(&self, _: LocalContextRef, m: &mut Module) -> OpVec {
+        let compiled = (self.name.clone(), self.constructor.to_string(), self.argument.clone());
+        m.consts.push(compiled);
+        vec![]
+    }
+}
+
+impl Compile for asm::Static {
+    fn compile(&self, _: LocalContextRef, m: &mut Module) -> OpVec {
+        m.statics.push(self.name.clone());
         vec![]
     }
 }

@@ -215,9 +215,9 @@ impl Extern {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Const {
-    name: Name,
-    constructor: Path,
-    argument: Option<String>,
+    pub name: Name,
+    pub constructor: Path,
+    pub argument: Option<String>,
 }
 
 impl Const {
@@ -232,7 +232,7 @@ impl Const {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Static {
-    name: Name,
+    pub name: Name,
 }
 
 impl Static {
