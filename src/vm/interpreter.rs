@@ -1,6 +1,8 @@
-use super::machine::{Frame, Machine, ValuePointer};
+use super::machine::{Frame, IntoBox, Machine, ValuePointer};
+use super::bytecode::types::Addr;
 
 use std::io::{Cursor};
+use std::mem;
 
 pub trait Execute {
     fn execute(&mut self);
@@ -60,10 +62,10 @@ impl Execute for Machine {
             match op {
                 FnEntry(fn_entry) => {
                     let mut frame = self.get_stack_top_mut();
-                    frame.slots.resize(fn_entry.num_locals as usize, 0x0);
+                    frame.slots.resize(fn_entry.num_locals as usize, 0x0 as ValuePointer);
                 },
                 GetLocal(get_local) => {
-                    let value: u64;
+                    let value: ValuePointer;
                     {
                         let frame = self.get_stack_top();
                         value = frame.slots[get_local.idx as usize];
@@ -83,20 +85,25 @@ impl Execute for Machine {
                 Invoke(invoke) => {
                     let frame = self.build_frame(next_addr, invoke.num_args as usize);
                     self.call_stack.push(frame);
-                    next_addr = self.stack.pop().unwrap();
+
+                    // Get the boxed address value off the stack and jump to it
+                    let value = self.stack.pop().unwrap();
+                    let addr: Box<Addr> = unsafe { value.into_box() };
+                    next_addr = *addr;
                 },
                 PushAddress(push_address) => {
-                    self.stack.push(push_address.addr);
+                    let boxed: Box<Addr> = Box::new(push_address.addr);
+                    self.stack.push(unsafe { mem::transmute(boxed) });
                 },
                 BranchIf(branch_if) => {
                     let value = self.stack.pop().unwrap();
-                    if value == 0x0 {
+                    if value.is_null() {
                         next_addr = branch_if.dest
                     }
                 },
                 BranchIfNot(branch_if_not) => {
                     let value = self.stack.pop().unwrap();
-                    if value != 0x0 {
+                    if !value.is_null() {
                         next_addr = branch_if_not.dest
                     }
                 },

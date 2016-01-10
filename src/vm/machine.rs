@@ -1,29 +1,41 @@
 use super::super::asm;
 use super::super::asm_compiler::{CompiledRelocationTarget, CompileModule};
+use super::bytecode::types::Addr;
 use super::bytecode::util::NativeEndianWriteExt;
 
 use std::collections::HashMap;
 use std::io::Cursor;
+use std::ptr;
 
-pub type ValuePointer = u64;
+/// Untyped pointer to a value
+pub type ValuePointer = *mut usize;
+
+pub trait IntoBox<T> {
+    unsafe fn into_box(self) -> Box<T>;
+}
+impl<T: Sized> IntoBox<T> for ValuePointer {
+    unsafe fn into_box(self) -> Box<T> {
+        Box::from_raw(self as *mut T)
+    }
+}
 
 pub type TableKey = String;
 
+#[derive(Debug)]
 pub enum TableValue {
     /// Pointer to the constant value in memory
     Const(ValuePointer),
     /// Pointer to the static value in memory
     Static(ValuePointer),
     /// Address in the machine's code for the function
-    Defn(u64),
+    Defn(Addr),
 }
 
 impl TableValue {
-    fn as_u64(&self) -> u64 {
+    fn as_addr(&self) -> u64 {
         match *self {
-            TableValue::Const(vp) => vp,
-            TableValue::Static(vp) => vp,
             TableValue::Defn(ptr) => ptr,
+            _ => panic!("Cannot convert {:?} to Addr", self)
         }
     }
 }
@@ -40,6 +52,10 @@ impl SymbolTable {
     fn lookup_symbol(&self, symbol: &TableKey) -> &TableValue {
         self.table.get(symbol).unwrap()
     }
+
+    fn set_symbol(&mut self, symbol: &TableKey, value: TableValue) {
+        self.table.insert(symbol.clone(), value);
+    }
 }
 
 /// The actual virtual machine
@@ -49,17 +65,17 @@ pub struct Machine {
 
     pub call_stack: Vec<Frame>,
 
-    pub ip: ValuePointer,
+    pub ip: Addr,
 
-    pub stack: Vec<u64>,
+    pub stack: Vec<ValuePointer>,
 
     pub symbol_table: SymbolTable,
 }
 
 pub struct Frame {
-    pub return_addr: ValuePointer,
+    pub return_addr: Addr,
     pub args: Vec<ValuePointer>,
-    pub slots: Vec<u64>,
+    pub slots: Vec<ValuePointer>,
 }
 
 trait ModuleLoad {
@@ -70,7 +86,7 @@ impl ModuleLoad for Machine {
     fn load_module(&mut self, module: &mut asm::Module) {
         use super::super::asm_compiler::CompiledRelocationTarget::*;
 
-        let compiled = module.compile();
+        let compiled        = module.compile();
         let ref relocations = compiled.relocations;
 
         let base_addr = self.code.len() as u64;
@@ -93,8 +109,7 @@ impl ModuleLoad for Machine {
                 &ExternalFunctionPath(ref path) => {
                     if self.symbol_table.has_symbol(path) {
                         let target = self.symbol_table.lookup_symbol(path);
-                        let target_addr = target.as_u64();
-                        writer.write_hu64(target_addr);
+                        writer.write_hu64(target.as_addr());
                     } else {
                         panic!("Symbol not found in symbol table: {:?}", path)
                     }
