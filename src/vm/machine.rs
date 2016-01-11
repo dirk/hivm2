@@ -4,8 +4,8 @@ use super::bytecode::types::Addr;
 use super::bytecode::util::NativeEndianWriteExt;
 
 use std::collections::HashMap;
+use std::fmt;
 use std::io::Cursor;
-use std::ptr;
 
 /// Untyped pointer to a value
 pub type ValuePointer = *mut usize;
@@ -19,6 +19,15 @@ impl<T: Sized> IntoBox<T> for ValuePointer {
     }
 }
 
+pub type BoxedPrimitiveFn = Box<Fn(&mut Machine, &Frame)>;
+pub struct PrimitiveFn(BoxedPrimitiveFn);
+
+impl fmt::Debug for PrimitiveFn {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "[native code]")
+    }
+}
+
 pub type TableKey = String;
 
 #[derive(Debug)]
@@ -29,6 +38,8 @@ pub enum TableValue {
     Static(ValuePointer),
     /// Address in the machine's code for the function
     Defn(Addr),
+    /// Primitive function
+    Primitive(PrimitiveFn),
 }
 
 impl TableValue {
@@ -38,6 +49,10 @@ impl TableValue {
             _ => panic!("Cannot convert {:?} to Addr", self)
         }
     }
+
+    pub fn with_fn(f: BoxedPrimitiveFn) -> Self {
+        TableValue::Primitive(PrimitiveFn(f))
+    }
 }
 
 pub struct SymbolTable {
@@ -45,6 +60,12 @@ pub struct SymbolTable {
 }
 
 impl SymbolTable {
+    pub fn new() -> SymbolTable {
+        SymbolTable {
+            table: HashMap::new(),
+        }
+    }
+
     fn has_symbol(&self, symbol: &TableKey) -> bool {
         self.table.contains_key(symbol)
     }
@@ -53,7 +74,7 @@ impl SymbolTable {
         self.table.get(symbol).unwrap()
     }
 
-    fn set_symbol(&mut self, symbol: &TableKey, value: TableValue) {
+    pub fn set_symbol(&mut self, symbol: &TableKey, value: TableValue) {
         self.table.insert(symbol.clone(), value);
     }
 }

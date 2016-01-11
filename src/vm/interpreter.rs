@@ -1,4 +1,4 @@
-use super::machine::{Frame, IntoBox, Machine, ValuePointer};
+use super::machine::{Frame, IntoBox, Machine, SymbolTable, TableValue, ValuePointer};
 use super::bytecode::types::Addr;
 
 use std::io::{Cursor};
@@ -8,7 +8,24 @@ pub trait Execute {
     fn execute(&mut self);
 }
 
+fn builtin_println(m: &mut Machine, f: &Frame) {
+}
+
 impl Machine {
+    pub fn new() -> Machine {
+        let mut machine = Machine {
+            code: vec![],
+            call_stack: vec![],
+            ip: 0x0,
+            stack: vec![],
+            symbol_table: SymbolTable::new(),
+        };
+
+        machine.symbol_table.set_symbol(&"_.std.println".to_owned(), TableValue::with_fn(Box::new(builtin_println)));
+
+        machine
+    }
+
     #[inline]
     fn get_stack_top_mut(&mut self) -> &mut Frame {
         self.call_stack.last_mut().unwrap()
