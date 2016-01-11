@@ -6,16 +6,29 @@ use super::bytecode::util::NativeEndianWriteExt;
 use std::collections::HashMap;
 use std::fmt;
 use std::io::Cursor;
+use std::any::Any;
+use std::mem;
+
+pub type ValueBox<T: Any> = Box<T>;
 
 /// Untyped pointer to a value
 pub type ValuePointer = *mut usize;
 
-pub trait IntoBox<T> {
-    unsafe fn into_box(self) -> Box<T>;
+pub trait IntoBox {
+    unsafe fn into_box<T: Any + Sized>(self) -> ValueBox<T>;
 }
-impl<T: Sized> IntoBox<T> for ValuePointer {
-    unsafe fn into_box(self) -> Box<T> {
+impl IntoBox for ValuePointer {
+    unsafe fn into_box<T: Any + Sized>(self) -> ValueBox<T> {
         Box::from_raw(self as *mut T)
+    }
+}
+
+pub trait IntoPointer {
+    unsafe fn into_value_pointer(self) -> ValuePointer;
+}
+impl<T: Any> IntoPointer for ValueBox<T> {
+    unsafe fn into_value_pointer(self) -> ValuePointer {
+        mem::transmute(self)
     }
 }
 

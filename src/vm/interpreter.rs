@@ -1,14 +1,30 @@
-use super::machine::{Frame, IntoBox, Machine, SymbolTable, TableValue, ValuePointer};
+use super::machine::{
+    Frame,
+    IntoBox,
+    IntoPointer,
+    Machine,
+    SymbolTable,
+    TableValue,
+    ValueBox,
+    ValuePointer
+};
 use super::bytecode::types::Addr;
 
+use std::any::Any;
 use std::io::{Cursor};
-use std::mem;
 
 pub trait Execute {
     fn execute(&mut self);
 }
 
-fn builtin_println(m: &mut Machine, f: &Frame) {
+fn builtin_println(_: &mut Machine, f: &Frame) {
+    let arg1 = *unsafe { f.args[0].into_box::<String>() };
+
+    if !(&arg1 as &Any).is::<String>() {
+        panic!("Expected argument 1 to be String, got {:?}", arg1)
+    }
+
+    println!("{}", arg1);
 }
 
 impl Machine {
@@ -105,12 +121,12 @@ impl Execute for Machine {
 
                     // Get the boxed address value off the stack and jump to it
                     let value = self.stack.pop().unwrap();
-                    let addr: Box<Addr> = unsafe { value.into_box() };
+                    let addr: ValueBox<Addr> = unsafe { value.into_box() };
                     next_addr = *addr;
                 },
                 PushAddress(push_address) => {
-                    let boxed: Box<Addr> = Box::new(push_address.addr);
-                    self.stack.push(unsafe { mem::transmute(boxed) });
+                    let boxed: ValueBox<Addr> = ValueBox::new(push_address.addr);
+                    self.stack.push(unsafe { boxed.into_value_pointer() });
                 },
                 BranchIf(branch_if) => {
                     let value = self.stack.pop().unwrap();
