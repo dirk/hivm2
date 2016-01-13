@@ -174,7 +174,7 @@ impl Hash for Function {
 }
 
 impl Module {
-    fn new() -> Module {
+    pub fn new() -> Module {
         Module {
             name: "".to_owned(),
             relocations: vec![],
@@ -238,11 +238,11 @@ pub type FunctionMap = HashMap<Rc<Function>, u64>;
 pub type CompiledRelocationVec = Vec<(u64, CompiledRelocationTarget)>;
 
 pub trait CompileModule {
-    fn compile(&mut self) -> CompiledModule;
+    fn compile(&self) -> CompiledModule;
 }
 
 impl CompileModule for asm::Module {
-    fn compile(&mut self) -> CompiledModule {
+    fn compile(&self) -> CompiledModule {
         let mut module = Module::new();
 
         let mut op_map: OpMap                 = HashMap::new();
@@ -598,5 +598,28 @@ impl Compile for asm::Test {
         let idx = lc.unwrap().locals.find(name).unwrap();
 
         vec![Op::Owned(BGetLocal { idx: idx, }.into_op())]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{CompileModule};
+    use asm::{BasicBlock, Defn, Module, Return, Statement};
+
+    #[test]
+    fn test_compile_module() {
+        let module = Module::with_stmts(vec![
+            Statement::StatementDefn(Defn::new(
+                "a".to_owned(),
+                vec![],
+                BasicBlock::with_stmts(vec![
+                    Statement::StatementReturn(Return::new(None))
+                ])
+            )),
+        ]);
+        let compiled = module.compile();
+
+        assert!(compiled.code.len() > 0);
+        assert_eq!(compiled.functions.len(), 1);
     }
 }

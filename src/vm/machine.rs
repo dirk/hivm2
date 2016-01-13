@@ -1,4 +1,4 @@
-use super::super::asm_compiler::{CompiledRelocationTarget, CompiledModule};
+use asm_compiler::{CompiledRelocationTarget, CompiledModule};
 use super::bytecode::types::Addr;
 use super::bytecode::util::NativeEndianWriteExt;
 
