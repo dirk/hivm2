@@ -29,17 +29,17 @@ fn builtin_println(_: &mut Machine, f: &Frame) {
 
 impl Machine {
     pub fn new() -> Machine {
-        let mut machine = Machine {
+        Machine {
             code: vec![],
             call_stack: vec![],
             ip: 0x0,
             stack: vec![],
             symbol_table: SymbolTable::new(),
-        };
+        }
+    }
 
-        machine.symbol_table.set_symbol(&"_.std.println".to_owned(), TableValue::with_fn(Box::new(builtin_println)));
-
-        machine
+    pub fn add_std(&mut self) {
+        self.symbol_table.set_symbol(&"_.std.println".to_owned(), TableValue::with_fn(Box::new(builtin_println)));
     }
 
     #[inline]

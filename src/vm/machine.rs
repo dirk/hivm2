@@ -34,7 +34,11 @@ impl<T: Any> IntoPointer for ValueBox<T> {
     }
 }
 
+/// Primitive functions must be wrapped in `Box` since the size of `Fn` is not known at
+/// compile time.
 pub type BoxedPrimitiveFn = Box<Fn(&mut Machine, &Frame)>;
+
+/// Wrapper around `BoxedPrimitiveFn` so that we can implement traits on it
 pub struct PrimitiveFn(BoxedPrimitiveFn);
 
 impl fmt::Debug for PrimitiveFn {
@@ -103,6 +107,7 @@ pub struct Machine {
 
     pub call_stack: Vec<Frame>,
 
+    /// Instruction pointer (address of the instruction to be/being executed)
     pub ip: Addr,
 
     pub stack: Vec<ValuePointer>,
@@ -118,6 +123,10 @@ pub struct Frame {
 }
 
 trait ModuleLoad {
+    /// Load a compiled module into a machine. Performs the following operations:
+    /// - Adds module's bytecode to the machine's program data storage
+    /// - Adds module's exported symbols (functions, consts, statics) to machine's symbol table
+    /// - Resolves the modules relocations into concrete addresses/indices
     fn load_module(&mut self, compiled: &CompiledModule);
 }
 
