@@ -122,8 +122,10 @@ pub struct Frame {
     pub slots: Vec<ValuePointer>,
 }
 
-trait ModuleLoad {
+/// Ways for modules to be loaded into machines.
+pub trait ModuleLoad {
     /// Load a compiled module into a machine. Performs the following operations:
+    ///
     /// - Adds module's bytecode to the machine's program data storage
     /// - Adds module's exported symbols (functions, consts, statics) to machine's symbol table
     /// - Resolves the modules relocations into concrete addresses/indices

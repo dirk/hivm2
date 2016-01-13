@@ -155,7 +155,7 @@ pub fn pconst_constructor(input: PBytes) -> PResult<(Path, Option<String>)> {
     )
 }
 
-/// Parses `const @NAME = CONSTRUCTOR ARGUMENT?``
+/// Parses `const @NAME = CONSTRUCTOR ARGUMENT?`
 pub fn pconst(input: &[u8]) -> IResult<&[u8], Const> {
     chain!(input,
         tag!("const")               ~ space ~
@@ -210,7 +210,10 @@ fn ppidentifier(input: PBytes) -> PResult<String> {
     )
 }
 
-/// Parses a value type:
+/// Parses a value type
+///
+/// Values types can be:
+///
 /// - An anonymous function (`fn(ARGS) BLOCK`)
 /// - An identifier (`local`, `@static`, or `$const`)
 pub fn pvalue(input: PBytes) -> PResult<Value> {
@@ -220,7 +223,10 @@ pub fn pvalue(input: PBytes) -> PResult<Value> {
     ])
 }
 
-/// Parses assignments in the following forms:
+/// Parses assignments
+///
+/// Assignments can have the following forms:
+///
 /// - `NAME = VALUE`
 /// - `NAME := VALUE`
 ///
