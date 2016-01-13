@@ -126,7 +126,7 @@ impl Execute for Machine {
                 },
                 PushAddress(push_address) => {
                     let boxed: ValueBox<Addr> = ValueBox::new(push_address.addr);
-                    self.stack.push(unsafe { boxed.into_value_pointer() });
+                    self.stack.push(unsafe { boxed.into_pointer() });
                 },
                 BranchIf(branch_if) => {
                     let value = self.stack.pop().unwrap();

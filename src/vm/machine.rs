@@ -1,5 +1,4 @@
-use super::super::asm;
-use super::super::asm_compiler::{CompiledRelocationTarget, CompileModule};
+use super::super::asm_compiler::{CompiledRelocationTarget, CompiledModule};
 use super::bytecode::types::Addr;
 use super::bytecode::util::NativeEndianWriteExt;
 
@@ -14,20 +13,23 @@ pub type ValueBox<T: Any> = Box<T>;
 /// Untyped pointer to a value
 pub type ValuePointer = *mut usize;
 
+/// Convert a thing into a typed `ValueBox`.
 pub trait IntoBox {
     unsafe fn into_box<T: Any + Sized>(self) -> ValueBox<T>;
 }
 impl IntoBox for ValuePointer {
+    /// Take an untyped raw pointer and convert it into a box with a given expected type.
     unsafe fn into_box<T: Any + Sized>(self) -> ValueBox<T> {
         Box::from_raw(self as *mut T)
     }
 }
 
 pub trait IntoPointer {
-    unsafe fn into_value_pointer(self) -> ValuePointer;
+    unsafe fn into_pointer(self) -> ValuePointer;
 }
 impl<T: Any> IntoPointer for ValueBox<T> {
-    unsafe fn into_value_pointer(self) -> ValuePointer {
+    /// Get the untyped raw pointer for a given typed, boxed value.
+    unsafe fn into_pointer(self) -> ValuePointer {
         mem::transmute(self)
     }
 }
@@ -68,6 +70,8 @@ impl TableValue {
     }
 }
 
+/// Maps keys (fully-qualified paths) to various values (consts, statics, defined functions, and
+/// primitive functions)
 pub struct SymbolTable {
     table: HashMap<TableKey, TableValue>,
 }
@@ -106,6 +110,7 @@ pub struct Machine {
     pub symbol_table: SymbolTable,
 }
 
+/// Frame on the call stack
 pub struct Frame {
     pub return_addr: Addr,
     pub args: Vec<ValuePointer>,
@@ -113,18 +118,17 @@ pub struct Frame {
 }
 
 trait ModuleLoad {
-    fn load_module(&mut self, &mut asm::Module);
+    fn load_module(&mut self, compiled: &CompiledModule);
 }
 
 impl ModuleLoad for Machine {
-    fn load_module(&mut self, module: &mut asm::Module) {
+    fn load_module(&mut self, compiled: &CompiledModule) {
         use super::super::asm_compiler::CompiledRelocationTarget::*;
 
-        let compiled        = module.compile();
         let ref relocations = compiled.relocations;
 
         let base_addr = self.code.len() as u64;
-        self.code.extend(compiled.code);
+        self.code.extend(compiled.code.clone());
 
         let mut writer = Cursor::new(&mut self.code[..]);
 
