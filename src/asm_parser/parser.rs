@@ -351,7 +351,7 @@ pub fn pcall(input: PBytes) -> PResult<Call> {
         let result = ppath(input);
 
         match result {
-            IResult::Done(_, ref p) if p.ends_with_static() || p.ends_with_constant() => {
+            IResult::Done(_, ref p) if p.ends_with_static() || p.ends_with_const() => {
                 IResult::Error(NomErr::Position(ErrorKind::Tag, input))
             },
             _ => result

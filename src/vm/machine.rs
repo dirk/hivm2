@@ -8,7 +8,7 @@ use std::io::Cursor;
 use std::any::Any;
 use std::mem;
 
-pub type ValueBox<T: Any> = Box<T>;
+pub type ValueBox<T> = Box<T>;
 
 /// Untyped pointer to a value
 pub type ValuePointer = *mut usize;
@@ -92,7 +92,12 @@ impl SymbolTable {
     }
 
     fn lookup_symbol(&self, symbol: &TableKey) -> &TableValue {
-        self.table.get(symbol).unwrap()
+        let value = self.table.get(symbol);
+
+        match value {
+            Some(v) => v,
+            None => panic!("Symbol not found: {:?}", symbol),
+        }
     }
 
     pub fn set_symbol(&mut self, symbol: &TableKey, value: TableValue) {

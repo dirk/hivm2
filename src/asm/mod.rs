@@ -165,7 +165,7 @@ impl Path {
         Ok(Path { segments: segments })
     }
 
-    pub fn ends_with_constant(&self) -> bool {
+    pub fn ends_with_const(&self) -> bool {
         self.segments.last().unwrap().starts_with("@")
     }
 
