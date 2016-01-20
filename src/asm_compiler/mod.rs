@@ -3,8 +3,8 @@ use asm::Statement::*;
 use asm::AssignmentOp;
 use vm::bytecode::ops::*;
 
+use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
-use std::mem;
 use std::rc::Rc;
 
 type ByteVec = Vec<u8>;
@@ -23,7 +23,7 @@ impl OpVecExt for OpVec {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 enum Op {
     Owned(BOp),
     Shared(Rc<BOp>),
@@ -96,14 +96,14 @@ pub struct Relocation {
     pub target: RelocationTarget,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum FunctionName {
     Named(String),
     Anonymous
 }
 
 /// Representation of named and anonymous functions in a compiled module.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Function {
     pub name: FunctionName,
     pub ops: OpVec,
@@ -131,9 +131,10 @@ trait PointerPartialEq {
 impl PointerPartialEq for BOp {}
 impl PointerPartialEq for Function {}
 
-trait PointerHash {
+trait PointerHash : Debug {
     fn pointer_hash<H: Hasher>(&self, state: &mut H) {
-        let ptr: *const usize = unsafe { mem::transmute(&self) };
+        let ptr = (self as *const Self) as *const usize;
+        // println!("pointer_hash: {:?} -> {:?}", self, ptr as u64);
         state.write_u64(ptr as u64)
     }
 }
@@ -294,12 +295,12 @@ impl asm::Module {
         for op in ops {
             match op {
                 Op::Owned(op) => bytecode.extend(op.to_binary()),
-                Op::Shared(opref) => {
+                Op::Shared(shared) => {
                     // Length of the vec will be the first address of the op we're inserting
                     let addr = bytecode.len() as u64;
-                    op_map.insert(opref.clone(), addr);
+                    op_map.insert(shared.clone(), addr);
 
-                    let op: &BOp = opref.borrow();
+                    let op: &BOp = shared.borrow();
                     bytecode.extend(op.clone().to_binary())
                 },
             }
@@ -406,7 +407,7 @@ impl Compile for asm::Statement {
             // StatementWhile(While),
             // StatementDo(Do),
             // StatementBreak
-            _                           => panic!("#compile not implemented for {:?}", self),
+            _                           => panic!("Compile#compile not implemented for {:?}", self),
         }
     }
 }
