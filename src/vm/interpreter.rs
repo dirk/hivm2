@@ -12,6 +12,7 @@ use super::bytecode::types::Addr;
 
 use std::any::Any;
 use std::io::{Cursor};
+use std::rc::Rc;
 
 pub trait Execute {
     fn execute(&mut self);
@@ -27,19 +28,30 @@ fn builtin_println(_: &mut Machine, f: &Frame) {
     println!("{}", arg1);
 }
 
+fn builtin_string_new(m: &mut Machine, f: &Frame) {
+    let arg1 = f.args[0];
+
+    m.stack.push(arg1);
+}
+
 impl Machine {
     pub fn new() -> Machine {
-        Machine {
+        let mut m = Machine {
             code: vec![],
             call_stack: vec![],
             ip: 0x0,
             stack: vec![],
             symbol_table: SymbolTable::new(),
-        }
+        };
+
+        m.add_std();
+
+        return m
     }
 
     pub fn add_std(&mut self) {
-        self.symbol_table.set_symbol(&"_.std.println".to_owned(), TableValue::with_fn(Box::new(builtin_println)));
+        self.symbol_table.set_symbol(&"_.std.println".to_owned(),    TableValue::with_fn(Rc::new(builtin_println)));
+        self.symbol_table.set_symbol(&"_.std.string.new".to_owned(), TableValue::with_fn(Rc::new(builtin_string_new)));
     }
 
     #[inline]
@@ -127,6 +139,9 @@ impl Execute for Machine {
                 PushAddress(push_address) => {
                     let boxed: ValueBox<Addr> = ValueBox::new(push_address.addr);
                     self.stack.push(unsafe { boxed.into_pointer() });
+                },
+                LoadConst(_) => {
+                    unreachable!();
                 },
                 BranchIf(branch_if) => {
                     let value = self.stack.pop().unwrap();

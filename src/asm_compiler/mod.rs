@@ -82,6 +82,8 @@ pub enum RelocationTarget {
     InternalFunctionAddress(Rc<Function>),
     /// Absolute string version of the path to the external function
     ExternalFunctionPath(String),
+
+    ConstPath(String),
 }
 
 /// Links sites in the code that need to have their addresses updated (relocated) with a
@@ -216,14 +218,23 @@ impl Module {
             target: RelocationTarget::InternalBranchAddress(target),
         })
     }
+
+    fn add_const_relocation(&mut self, site: Rc<BOp>, target: String) {
+        self.relocations.push(Relocation {
+            site: site,
+            target: RelocationTarget::ConstPath(target),
+        })
+    }
 }
 
 pub enum CompiledRelocationTarget {
     InternalAddress(u64),
     ExternalFunctionPath(String),
+    ConstPath(String),
 }
 
 pub struct CompiledModule {
+    pub name: String,
     pub code: Vec<u8>,
     pub functions: Vec<(String, u64)>,
     pub consts: Vec<CompiledConst>,
@@ -279,6 +290,7 @@ impl CompileModule for asm::Module {
         let relocations = self.resolve_relocations(module.relocations, &op_map, &function_map);
 
         CompiledModule {
+            name: module.name,
             code: code,
             functions: functions,
             consts: module.consts,
@@ -315,8 +327,12 @@ impl asm::Module {
         let mut compiled_relocations: CompiledRelocationVec = Vec::new();
 
         for relocation in relocations {
-            let site              = relocation.site;
-            let site_base_address = op_map.get(&site).unwrap();
+            let site = relocation.site;
+
+            let site_base_address = match op_map.get(&site) {
+                Some(addr) => addr,
+                None => panic!("Site not found: {:?}", site),
+            };
 
             // Right now all ops have a max of 1 address
             let site_address = site_base_address + site.addr_field_offset(0);
@@ -342,6 +358,12 @@ impl asm::Module {
                         CompiledRelocationTarget::ExternalFunctionPath(path)
                     )
                 },
+                RelocationTarget::ConstPath(path) => {
+                    (
+                        site_address,
+                        CompiledRelocationTarget::ConstPath(path)
+                    )
+                }
             };
 
             compiled_relocations.push(compiled)
@@ -393,7 +415,7 @@ impl Compile for asm::Statement {
         match *self {
             StatementMod(_)             => vec![],
             // StatementExtern(e)       => e.compile(),
-            // StatementConst(c)        => c.compile(),
+            StatementConst(ref c)       => c.compile(lc, m),
             // StatementStatic(s)       => s.compile(),
             StatementLocal(_)           => vec![], // No-op since we'll have already collected locals
             StatementAssignment(ref a)  => a.compile(lc, m),
@@ -455,8 +477,27 @@ impl CompileToValue for asm::Value {
             asm::Value::Name(ref n) => self.compile_name_to_value(n.clone(), lc, m),
             asm::Value::Fn(ref f)   => f.compile_to_value(lc, m),
             asm::Value::Call(ref c) => c.compile_to_value(lc, m),
-            _                       => panic!("#compile_to_value not implemented for {:?}", self),
+            asm::Value::Path(ref p) => p.compile_to_value(lc, m),
+            // _                    => panic!("#compile_to_value not implemented for {:?}", self),
         }
+    }
+}
+
+impl CompileToValue for asm::Path {
+    fn compile_to_value(&self, _: LocalContextRef, m: &mut Module) -> OpVec {
+        let op: BOp =
+            if self.ends_with_const() {
+                BLoadConst { id: 0, }.into_op()
+            } else {
+                panic!("Cannot compile Path to value: {:?}", self)
+            };
+
+        let shared_op = Rc::new(op);
+        m.add_const_relocation(shared_op.clone(), self.to_string());
+
+        let mut ops = OpVec::new();
+        ops.push_shared(shared_op);
+        ops
     }
 }
 

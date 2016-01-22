@@ -27,6 +27,7 @@ pub enum BOp {
     Call(BCall),
     Invoke(BInvoke),
     PushAddress(BPushAddress),
+    LoadConst(BLoadConst),
     BranchIf(BBranchIf),
     BranchIfNot(BBranchIfNot),
     Return,
@@ -44,6 +45,7 @@ impl BOp {
             BOp::Call(c)        => bytes.write(&c.to_binary()).unwrap(),
             BOp::Invoke(i)      => bytes.write(&i.to_binary()).unwrap(),
             BOp::PushAddress(a) => bytes.write(&a.to_binary()).unwrap(),
+            BOp::LoadConst(e)  => bytes.write(&e.to_binary()).unwrap(),
             BOp::BranchIf(b)    => bytes.write(&b.to_binary()).unwrap(),
             BOp::BranchIfNot(b) => bytes.write(&b.to_binary()).unwrap(),
             BOp::Return         => 0,
@@ -68,10 +70,11 @@ impl BOp {
             &BOp::Invoke(_)      => 4,
             &BOp::Return         => 5,
             &BOp::PushAddress(_) => 6,
-            &BOp::BranchIf(_)    => 7,
-            &BOp::BranchIfNot(_) => 8,
-            &BOp::Pop            => 9,
-            &BOp::Noop           => 10,
+            &BOp::LoadConst(_)  => 7,
+            &BOp::BranchIf(_)    => 8,
+            &BOp::BranchIfNot(_) => 9,
+            &BOp::Pop            => 10,
+            &BOp::Noop           => 11,
         }
     }
 
@@ -101,6 +104,7 @@ impl BOp {
             &BOp::Call(_)        => 0,
             &BOp::BranchIf(_)    => 0,
             &BOp::BranchIfNot(_) => 0,
+            &BOp::LoadConst(_)   => 0,
             _                    => panic!("Op has no address fields: {:?}", self),
         };
 
@@ -295,6 +299,27 @@ impl BinarySerializable for BPushAddress {
 impl IntoOpConvertable for BPushAddress {
     fn into_op(self) -> BOp {
         BOp::PushAddress(self)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct BLoadConst {
+    pub id: u32,
+}
+impl BinarySerializable for BLoadConst {
+    fn from_binary(input: &mut Cursor<BBytes>) -> BLoadConst {
+        let id = input.read_hu32();
+        BLoadConst { id: id, }
+    }
+    fn to_binary(&self) -> Vec<u8> {
+        let mut bytes = vec![];
+        bytes.write_hu32(self.id);
+        bytes
+    }
+}
+impl IntoOpConvertable for BLoadConst {
+    fn into_op(self) -> BOp {
+        BOp::LoadConst(self)
     }
 }
 

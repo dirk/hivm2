@@ -10,13 +10,16 @@ fn compiles_asm() {
         Assignment,
         AssignmentOp,
         BasicBlock,
-        Call,
         Const,
         Defn,
         Mod,
         Path,
         Return,
         Value
+    };
+    use hivm2::vm::{
+        Machine,
+        ModuleLoad
     };
 
     let function_defn = Defn::new(
@@ -35,10 +38,16 @@ fn compiles_asm() {
                 AssignmentOp::AllocateAndAssign,
                 Value::Path(Path::with_name("@hello_world".to_owned()))
             )),
-            StatementCall(Call::new(
-                Path::with_name("bar".to_owned()),
-                vec![]
-            ))
+            // StatementCall(Call::new(
+            //     Path::with_name("_.std.println".to_owned()),
+            //     vec![
+            //         "val".to_owned(),
+            //     ]
+            // )),
+            // StatementCall(Call::new(
+            //     Path::with_name("bar".to_owned()),
+            //     vec![]
+            // )),
         ])
     );
     let hello_world_const = Const::new(
@@ -56,5 +65,8 @@ fn compiles_asm() {
     assert_eq!(module.stmts.len(), 4);
     assert!(module.validate().is_ok());
 
-    // let compiled = module.compile();
+    let compiled = module.compile();
+
+    let mut machine = Machine::new();
+    machine.load_module(&compiled);
 }
